@@ -1,47 +1,87 @@
-import React from 'react';
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet } from 'react-native';
 
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-
 import WelcomeScreen from './Pages/WelcomeScreen';
 import SignUpScreen from './Pages/SignUpScreen';
 import LoginScreen from './Pages/LoginScreen';
 import ProfileSetupScreen from './Pages/ProfileSetupScreen';
 import HomeScreen from './Pages/Home';
 import ProfileDetailScreen from './Pages/ProfileDetailScreen';
-
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MatchesScreen from './Pages/MatchesScreen';
 import MessagesScreen from './Pages/MessagesScreen';
 import ProfileScreen from './Pages/ProfileScreen';
 import LikesScreen from './Pages/LikesScreen';
+import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
 
 const Tab = createBottomTabNavigator();
 
 function MainTabs() {
   return (
     <Tab.Navigator
-      screenOptions={{
+      screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#FF5A5F',
-        tabBarStyle: { paddingBottom: 5 }
-      }}
+        tabBarActiveTintColor: '#FF5A5F', // Romantic pink/red
+        tabBarInactiveTintColor: '#888', // Subtle gray
+        tabBarStyle: { 
+          paddingBottom: 5,
+          borderTopWidth: 0,
+          elevation: 0,
+          backgroundColor: '#fff'
+        },
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          
+          if (route.name === 'Discover') {
+            iconName = focused ? 'explore' : 'explore';
+            return <MaterialIcons name={iconName} size={size} color={color} />;
+          } else if (route.name === 'Matches') {
+            iconName = focused ? 'heart' : 'heart-outline';
+            return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
+          } else if (route.name === 'Messages') {
+            iconName = focused ? 'message' : 'message';
+            return <MaterialIcons name={iconName} size={size} color={color} />;
+          } else if (route.name === 'Likes') {
+            iconName = focused ? 'star' : 'star-outline';
+            return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
+          } else if (route.name === 'Profile') {
+            iconName = focused ? 'person' : 'person-outline';
+            return <MaterialIcons name={iconName} size={size} color={color} />;
+          }
+        },
+      })}
     >
-      <Tab.Screen name="Discover" component={HomeScreen} />
-      <Tab.Screen name="Matches" component={MatchesScreen} />
-      <Tab.Screen name="Messages" component={MessagesScreen} />
-      <Tab.Screen name="Likes" component={LikesScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen 
+        name="Discover" 
+        component={HomeScreen} 
+        options={{ title: 'Discover' }}
+      />
+      <Tab.Screen 
+        name="Matches" 
+        component={MatchesScreen} 
+        options={{ title: 'Matches' }}
+      />
+      <Tab.Screen 
+        name="Messages" 
+        component={MessagesScreen} 
+        options={{ title: 'Messages' }}
+      />
+      <Tab.Screen 
+        name="Likes" 
+        component={LikesScreen} 
+        options={{ title: 'Likes' }}
+      />
+      <Tab.Screen 
+        name="Profile" 
+        component={ProfileScreen} 
+        options={{ title: 'Profile' }}
+      />
     </Tab.Navigator>
   );
 }
 
 
-
 const Stack = createNativeStackNavigator();
-
 export default function App() {
   return (
     <NavigationContainer>
@@ -59,7 +99,3 @@ export default function App() {
 
   );
 }
-
-const styles = StyleSheet.create({
-  // You can keep this for other screens if needed
-});
