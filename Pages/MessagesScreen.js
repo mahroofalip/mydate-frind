@@ -248,7 +248,7 @@ export default function MessagesScreen({ navigation }) {
       )}
       
       {/* Premium Banner */}
-      {premiumVisible && (
+      {/* {premiumVisible && (
         <View style={styles.premiumBanner}>
           <View style={styles.premiumContent}>
             <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
@@ -271,7 +271,7 @@ export default function MessagesScreen({ navigation }) {
             <MaterialIcons name="close" size={18} color="#888" />
           </TouchableOpacity>
         </View>
-      )}
+      )} */}
       
       {/* Floating Action Button */}
       {/* <TouchableOpacity 

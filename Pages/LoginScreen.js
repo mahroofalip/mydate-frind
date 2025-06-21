@@ -28,10 +28,10 @@ export default function LoginScreen({ navigation }) {
   };
 
   const handleLogin = async () => {
-    // if (!email || !password) {
-    //   setError('Please enter both email and password');
-    //   return;
-    // }
+    if (!email || !password) {
+      setError('Please enter both email and password');
+      return;
+    }
 
     setLoading(true);
     setError('');
@@ -74,96 +74,173 @@ export default function LoginScreen({ navigation }) {
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.title}>Welcome Back 👋</Text>
-      <Text style={styles.subtitle}>Log in to continue</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Welcome Back 👋</Text>
+        <Text style={styles.subtitle}>Continue your love story</Text>
+      </View>
 
-      {error ? <Text style={styles.error}>{error}</Text> : null}
+      <View style={styles.formContainer}>
+        {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        placeholderTextColor="#aaa"
-        keyboardType="email-address"
-        autoCapitalize="none"
-        value={email}
-        onChangeText={setEmail}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Your Email"
+          placeholderTextColor="#a88181"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          value={email}
+          onChangeText={setEmail}
+        />
 
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        placeholderTextColor="#aaa"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-      />
+        <TextInput
+          style={styles.input}
+          placeholder="Your Secret Key"
+          placeholderTextColor="#a88181"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
 
-      <TouchableOpacity 
-        onPress={handleLogin} 
-        style={styles.button}
-        disabled={loading}
-      >
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Log In</Text>
-        )}
-      </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={handleLogin} 
+          style={styles.button}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Log In</Text>
+          )}
+        </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
-        <Text style={styles.link}>Don't have an account? Sign Up</Text>
-      </TouchableOpacity>
+        <TouchableOpacity 
+          onPress={() => navigation.navigate('SignUp')}
+          style={styles.loginLink}
+        >
+          <Text style={styles.linkText}>
+            New to love? <Text style={styles.linkHighlight}>Create Account</Text>
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.footer}>
+        <Text style={styles.quote}>"The best thing to hold onto in life is each other."</Text>
+        <Text style={styles.author}>- Audrey Hepburn</Text>
+      </View>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
+// Unified Styles for both screens
+const unifiedStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fdfdfd',
-    justifyContent: 'center',
-    paddingHorizontal: 30,
+    backgroundColor: '#fffafb',
+    paddingHorizontal: 25,
   },
-  title: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    marginBottom: 6,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 30,
-  },
-  input: {
-    backgroundColor: '#f1f1f1',
-    borderRadius: 10,
-    padding: 15,
-    fontSize: 16,
-    marginBottom: 20,
-    color: '#000',
-  },
-  button: {
-    backgroundColor: '#3b82f6',
-    paddingVertical: 15,
-    borderRadius: 10,
-    marginBottom: 20,
+  header: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    minHeight: 50,
+    paddingTop: 20,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#c24e4e',
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+  subtitle: {
+    fontSize: 18,
+    color: '#b37676',
+    marginBottom: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+  formContainer: {
+    flex: 2,
+    justifyContent: 'center',
+  },
+  input: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 18,
+    fontSize: 16,
+    marginBottom: 25,
+    color: '#6d4141',
+    borderWidth: 1,
+    borderColor: '#f8e0e0',
+    shadowColor: '#f5d0d9',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif',
+  },
+  button: {
+    backgroundColor: '#e8b3b3',
+    paddingVertical: 18,
+    borderRadius: 25,
+    marginBottom: 20,
+    shadowColor: '#d9a7a7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 7,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '600',
-  },
-  link: {
     textAlign: 'center',
-    color: '#3b82f6',
-    fontSize: 15,
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  loginLink: {
+    marginTop: 15,
+    alignSelf: 'center',
+  },
+  linkText: {
+    textAlign: 'center',
+    color: '#a88181',
+    fontSize: 16,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif',
+  },
+  linkHighlight: {
+    color: '#c24e4e',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  footer: {
+    flex: 0.8,
+    justifyContent: 'flex-end',
+    paddingBottom: 70,
+    alignItems: 'center',
+  },
+  quote: {
+    fontStyle: 'italic',
+    color: '#b37676',
+    fontSize: 16,
+    textAlign: 'center',
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
+  },
+  author: {
+    color: '#b37676',
+    fontSize: 14,
+    marginTop: 8,
+    fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   error: {
-    color: 'red',
+    color: '#e74c3c',
     textAlign: 'center',
     marginBottom: 15,
+    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'sans-serif',
+    fontSize: 15,
   }
 });
+
+// Apply unified styles to both screens
+const styles = unifiedStyles;
