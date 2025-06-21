@@ -13,6 +13,7 @@ import ProfileScreen from './Pages/ProfileScreen';
 import LikesScreen from './Pages/LikesScreen';
 import SearchScreen from './Pages/SearchScreen'; // Import your new SearchScreen
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { ChatScreen } from './Pages/ChatScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -101,6 +102,8 @@ export default function App() {
         <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen}/>
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
+        <Stack.Screen name="ChatScreen" component={ChatScreen} />
+
       </Stack.Navigator>
     </NavigationContainer>
   );

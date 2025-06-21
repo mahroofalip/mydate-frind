@@ -13,77 +13,12 @@ import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
 
 export default function ProfileSetupScreen({ navigation }) {
-  const [name, setName] = useState('');
-  const [bio, setBio] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('');
-  const [location, setLocation] = useState('');
-  const [occupation, setOccupation] = useState('');
-  const [education, setEducation] = useState('');
-  const [interests, setInterests] = useState('');
-  const [lookingFor, setLookingFor] = useState('');
-  const [selfie, setSelfie] = useState(null);
-  const [extraImages, setExtraImages] = useState([]);
-
-  const takeSelfie = async () => {
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled) {
-      setSelfie(result.assets[0].uri);
-    }
-  };
-
-  const pickExtraImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-    });
-
-    if (!result.canceled && extraImages.length < 4) {
-      setExtraImages([...extraImages, result.assets[0].uri]);
-    }
-  };
-
-  const handleAgeChange = (text) => {
-    const numeric = text.replace(/[^0-9]/g, '');
-    setAge(numeric);
-  };
-
-  const handleNext = () => {
-    // if (!selfie) {
-    //   alert('Please take a selfie to continue.');
-    //   return;
-    // }
-
-    const profileData = {
-      name,
-      bio,
-      age,
-      gender,
-      location,
-      occupation,
-      education,
-      interests: interests.split(',').map((i) => i.trim()),
-      lookingFor,
-      selfie,
-      extraImages,
-    };
-
-    // TODO: Save profileData to backend or context
-    navigation.navigate('MainTabs');
-    
-  };
+  // ... existing state declarations ...
 
   return (
     <ScrollView 
       style={styles.container} 
-      contentContainerStyle={{ paddingBottom: 40, paddingTop:30 }}
+      contentContainerStyle={{ paddingBottom: 40 }}
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.header}>
