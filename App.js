@@ -1,4 +1,3 @@
-
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import WelcomeScreen from './Pages/WelcomeScreen';
@@ -12,7 +11,8 @@ import MatchesScreen from './Pages/MatchesScreen';
 import MessagesScreen from './Pages/MessagesScreen';
 import ProfileScreen from './Pages/ProfileScreen';
 import LikesScreen from './Pages/LikesScreen';
-import { MaterialIcons, MaterialCommunityIcons, FontAwesome5, AntDesign } from '@expo/vector-icons';
+import SearchScreen from './Pages/SearchScreen'; // Import your new SearchScreen
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const Tab = createBottomTabNavigator();
 
@@ -47,6 +47,9 @@ function MainTabs() {
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
             return <MaterialIcons name={iconName} size={size} color={color} />;
+          } else if (route.name === 'Search') {
+            iconName = focused ? 'search' : 'search';
+            return <MaterialIcons name={iconName} size={size} color={color} />;
           }
         },
       })}
@@ -60,6 +63,11 @@ function MainTabs() {
         name="Matches" 
         component={MatchesScreen} 
         options={{ title: 'Matches' }}
+      />
+      <Tab.Screen 
+        name="Search" 
+        component={SearchScreen} 
+        options={{ title: 'Search' }}
       />
       <Tab.Screen 
         name="Messages" 
@@ -80,7 +88,6 @@ function MainTabs() {
   );
 }
 
-
 const Stack = createNativeStackNavigator();
 export default function App() {
   return (
@@ -93,9 +100,8 @@ export default function App() {
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen}/>
         <Stack.Screen name="MainTabs" component={MainTabs} />
-
+        <Stack.Screen name="SearchScreen" component={SearchScreen} />
       </Stack.Navigator>
     </NavigationContainer>
-
   );
 }
