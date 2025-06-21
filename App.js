@@ -13,6 +13,10 @@ import HomeScreen from './Pages/Home';
 import ProfileDetailScreen from './Pages/ProfileDetailScreen';
 
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import MatchesScreen from './Pages/MatchesScreen';
+import MessagesScreen from './Pages/MessagesScreen';
+import ProfileScreen from './Pages/ProfileScreen';
+import LikesScreen from './Pages/LikesScreen';
 
 const Tab = createBottomTabNavigator();
 

@@ -1,15 +1,83 @@
 // screens/LoginScreen.js
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { 
+  View, 
+  Text, 
+  TextInput, 
+  TouchableOpacity, 
+  StyleSheet, 
+  KeyboardAvoidingView, 
+  Platform,
+  ActivityIndicator
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  // Mock authentication function - replace with real API call
+  const authenticateUser = async () => {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve(true); // Always return true for demo
+      }, 1000);
+    });
+  };
+
+  const handleLogin = async () => {
+    // if (!email || !password) {
+    //   setError('Please enter both email and password');
+    //   return;
+    // }
+
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Replace with actual authentication logic
+      const isAuthenticated = await authenticateUser();
+      
+      if (isAuthenticated) {
+        // Check if profile exists
+        const profileExists = await checkProfileExists(email);
+        
+        if (profileExists) {
+          navigation.navigate('MainTabs');
+        } else {
+          navigation.navigate('ProfileSetupScreen');
+        }
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Check if profile exists in AsyncStorage
+  const checkProfileExists = async (userEmail) => {
+    try {
+      const profileData = await AsyncStorage.getItem(`@profile_${userEmail}`);
+      return profileData !== null;
+    } catch (e) {
+      console.error('Failed to fetch profile', e);
+      return false;
+    }
+  };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView 
+      style={styles.container} 
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
       <Text style={styles.title}>Welcome Back 👋</Text>
       <Text style={styles.subtitle}>Log in to continue</Text>
+
+      {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <TextInput
         style={styles.input}
@@ -30,8 +98,16 @@ export default function LoginScreen({ navigation }) {
         onChangeText={setPassword}
       />
 
-      <TouchableOpacity onPress={()=>navigation.navigate('ProfileSetupScreen')} style={styles.button}>
-        <Text style={styles.buttonText}>Log In</Text>
+      <TouchableOpacity 
+        onPress={handleLogin} 
+        style={styles.button}
+        disabled={loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.buttonText}>Log In</Text>
+        )}
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
@@ -71,9 +147,11 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     borderRadius: 10,
     marginBottom: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 50,
   },
   buttonText: {
-    textAlign: 'center',
     color: '#fff',
     fontSize: 17,
     fontWeight: '600',
@@ -83,4 +161,9 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontSize: 15,
   },
+  error: {
+    color: 'red',
+    textAlign: 'center',
+    marginBottom: 15,
+  }
 });

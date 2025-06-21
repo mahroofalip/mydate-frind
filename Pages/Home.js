@@ -36,6 +36,82 @@ const richProfiles = [
     education: "Master's in Art History",
     lookingFor: 'Long-term relationship',
   },
+  {
+    id: '2',
+    name: 'Luna',
+    age: 26,
+    bio: 'Moonlight poet and stargazer. Searching for someone to share midnight conversations and sunrise adventures with.',
+    place: 'Santorini, Greece',
+    distance: '3 miles away',
+    lastOnline: 'Just now',
+    interests: ['Astronomy', 'Writing', 'Piano', 'Beach Walks', 'Photography'],
+    match: '97%',
+    image: 'https://images.unsplash.com/photo-1621786033626-7b1f91e8d59f?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+    extraImages: [
+      'https://images.unsplash.com/photo-1567532939604-b6b5b0e1607d?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+      'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80'
+    ],
+    occupation: 'Poet & Librarian',
+    education: "BA in Creative Writing",
+    lookingFor: 'Deep emotional connection'
+  },
+  {
+    id: '3',
+    name: 'Isabella',
+    age: 25,
+    bio: 'Floral designer who speaks the language of flowers. Let\'s create our own love story among the blossoms.',
+    place: 'Provence, France',
+    distance: '0.5 miles away',
+    lastOnline: '5 mins ago',
+    interests: ['Botany', 'Watercolor Painting', 'Vintage Books', 'Picnics', 'Folk Music'],
+    match: '93%',
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80',
+    extraImages: [
+      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80'
+    ],
+    occupation: 'Floral Artist',
+    education: "Horticulture Diploma",
+    lookingFor: 'Romantic partnership'
+  },
+  {
+    id: '4',
+    name: 'Amélie',
+    age: 27,
+    bio: 'Ballet dancer seeking a partner for life\'s intimate waltz. Let\'s find beauty in small moments and grand gestures.',
+    place: 'Vienna, Austria',
+    distance: '2 miles away',
+    lastOnline: '10 mins ago',
+    interests: ['Classical Music', 'Candlelit Dinners', 'Vintage Cinema', 'Charity Work', 'Languages'],
+    match: '96%',
+    image: 'https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+    extraImages: [
+      'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=764&q=80'
+    ],
+    occupation: 'Principal Dancer',
+    education: "Vaganova Academy",
+    lookingFor: 'Soulmate'
+  },
+  {
+    id: '5',
+    name: 'Seraphina',
+    age: 23,
+    bio: 'Violinist composing the soundtrack of my life. Looking for a duet partner to harmonize with through rainy days and starlit nights.',
+    place: 'Venice, Italy',
+    distance: '4 miles away',
+    lastOnline: 'Online now',
+    interests: ['Symphonies', 'Sailing', 'Philosophy', 'Antique Shops', 'Tea Ceremonies'],
+    match: '99%',
+    image: 'https://images.unsplash.com/photo-1567532939604-b6b5b0e1607d?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+    extraImages: [
+      'https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1491&q=80',
+      'https://images.unsplash.com/photo-1619855544858-e8e275c3b31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80'
+    ],
+    occupation: 'Concert Violinist',
+    education: "Juilliard School",
+    lookingFor: 'Passionate romance'
+  }
 
 ];
 
@@ -108,6 +184,7 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.container}>
+      
       <FlatList
         ref={listRef}
         data={richProfiles}
@@ -152,6 +229,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Modal>
+      
     </View>
   );
 }

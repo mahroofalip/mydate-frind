@@ -76,7 +76,8 @@ export default function ProfileSetupScreen({ navigation }) {
     };
 
     // TODO: Save profileData to backend or context
-    navigation.navigate('Home');
+    navigation.navigate('MainTabs');
+    
   };
 
   return (
