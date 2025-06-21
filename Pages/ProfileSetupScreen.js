@@ -28,7 +28,7 @@ export default function ProfileSetupScreen({ navigation }) {
   const takeSelfie = async () => {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
-      aspect: [1, 1],
+      // aspect: [1, 1],
       quality: 0.5,
     });
 
@@ -41,7 +41,7 @@ export default function ProfileSetupScreen({ navigation }) {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      // aspect: [1, 1],
       quality: 0.5,
     });
 
@@ -95,7 +95,7 @@ export default function ProfileSetupScreen({ navigation }) {
       <View style={styles.card}>
         <Text style={styles.sectionTitle}>Profile Photos</Text>
         
-        <Text style={styles.label}>Main Selfie</Text>
+        <Text style={styles.label}>Verify With Selfie</Text>
         <TouchableOpacity onPress={takeSelfie} style={styles.avatarWrapper}>
           {selfie ? (
             <Image source={{ uri: selfie }} style={styles.avatar} />
@@ -275,6 +275,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F9FAFB',
     padding: 16,
+    
   },
   header: {
     marginBottom: 20,
