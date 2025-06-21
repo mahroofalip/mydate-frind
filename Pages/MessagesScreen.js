@@ -10,7 +10,7 @@ import {
   Dimensions,
   Animated
 } from 'react-native';
-import { MaterialIcons, Ionicons, FontAwesome, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,7 +23,8 @@ const conversations = [
     time: '2 mins ago',
     unread: 3,
     online: true,
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=688&q=80'
+    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=688&q=80',
+    premium: true
   },
   {
     id: '2',
@@ -32,7 +33,8 @@ const conversations = [
     time: '1 hour ago',
     unread: 0,
     online: true,
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80'
+    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+    premium: false
   },
   {
     id: '3',
@@ -41,7 +43,8 @@ const conversations = [
     time: '3 hours ago',
     unread: 1,
     online: false,
-    image: 'https://images.unsplash.com/photo-1545912452-8aea7e25a3d3?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80'
+    image: 'https://images.unsplash.com/photo-1545912452-8aea7e25a3d3?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+    premium: true
   },
   {
     id: '4',
@@ -50,7 +53,8 @@ const conversations = [
     time: 'Yesterday',
     unread: 0,
     online: false,
-    image: 'https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80'
+    image: 'https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+    premium: false
   },
   {
     id: '5',
@@ -59,7 +63,8 @@ const conversations = [
     time: '2 days ago',
     unread: 0,
     online: true,
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80'
+    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80',
+    premium: true
   },
   {
     id: '6',
@@ -68,15 +73,17 @@ const conversations = [
     time: '3 days ago',
     unread: 0,
     online: false,
-    image: 'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80'
+    image: 'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
+    premium: false
   },
 ];
 
-export default function MessagesScreen() {
+export default function MessagesScreen({ navigation }) {
   const [searchText, setSearchText] = useState('');
   const [filteredConversations, setFilteredConversations] = useState(conversations);
   const [activeTab, setActiveTab] = useState('all');
   const [fadeAnim] = useState(new Animated.Value(0));
+  const [premiumVisible, setPremiumVisible] = useState(true);
   
   useEffect(() => {
     // Filter conversations based on search text
@@ -97,14 +104,35 @@ export default function MessagesScreen() {
   }, []);
 
   const renderConversationItem = ({ item }) => (
-    <TouchableOpacity style={styles.conversationItem}>
+    <TouchableOpacity 
+      style={styles.conversationItem}
+      onPress={() => navigation.navigate('ChatScreen', { conversation: item })}
+    >
       <View style={styles.conversationLeft}>
         <View style={styles.avatarContainer}>
           <Image source={{ uri: item.image }} style={styles.avatar} />
           {item.online && <View style={styles.onlineIndicator} />}
+          {item.premium && (
+            <MaterialCommunityIcons 
+              name="crown" 
+              size={16} 
+              color="#FFD700" 
+              style={styles.premiumBadge} 
+            />
+          )}
         </View>
         <View style={styles.conversationInfo}>
-          <Text style={styles.conversationName}>{item.name}</Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.conversationName}>{item.name}</Text>
+            {item.premium && (
+              <MaterialCommunityIcons 
+                name="crown" 
+                size={16} 
+                color="#FFD700" 
+                style={styles.premiumIcon} 
+              />
+            )}
+          </View>
           <Text 
             style={[
               styles.lastMessage,
@@ -137,7 +165,10 @@ export default function MessagesScreen() {
           <TouchableOpacity style={styles.iconButton}>
             <MaterialIcons name="search" size={28} color="#FF5A5F" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity 
+            style={styles.iconButton}
+            onPress={() => navigation.navigate('NewMessage')}
+          >
             <MaterialIcons name="add" size={28} color="#FF5A5F" />
           </TouchableOpacity>
         </View>
@@ -207,16 +238,48 @@ export default function MessagesScreen() {
           <Text style={styles.emptyText}>
             Start a conversation with your matches!
           </Text>
-          <TouchableOpacity style={styles.findButton}>
+          <TouchableOpacity 
+            style={styles.findButton}
+            onPress={() => navigation.navigate('Discover')}
+          >
             <Text style={styles.findButtonText}>Find Matches</Text>
           </TouchableOpacity>
         </View>
       )}
       
+      {/* Premium Banner */}
+      {premiumVisible && (
+        <View style={styles.premiumBanner}>
+          <View style={styles.premiumContent}>
+            <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
+            <Text style={styles.premiumText}>See read receipts and typing indicators with Premium</Text>
+            <TouchableOpacity 
+              style={styles.upgradeButton}
+              onPress={() => {
+                // In a real app, this would navigate to premium screen
+                setPremiumVisible(false);
+                alert('Redirecting to Premium Upgrade');
+              }}
+            >
+              <Text style={styles.upgradeText}>Upgrade</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity 
+            style={styles.closeButton}
+            onPress={() => setPremiumVisible(false)}
+          >
+            <MaterialIcons name="close" size={18} color="#888" />
+          </TouchableOpacity>
+        </View>
+      )}
+      
       {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab}>
+      {/* <TouchableOpacity 
+        style={styles.fab}
+        onPress={() => navigation.navigate('NewMessage')}
+      >
         <MaterialIcons name="edit" size={24} color="white" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </Animated.View>
   );
 }
@@ -353,14 +416,29 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#fff',
   },
+  premiumBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#333',
+    borderRadius: 10,
+    padding: 3,
+  },
   conversationInfo: {
     flex: 1,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   conversationName: {
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
     marginBottom: 4,
+  },
+  premiumIcon: {
+    marginLeft: 5,
   },
   lastMessage: {
     fontSize: 15,
@@ -440,5 +518,50 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
+    zIndex: 10,
+  },
+  premiumBanner: {
+    position: 'absolute',
+    bottom: 4,
+    left: 20,
+    right: 20,
+    backgroundColor: '#333',
+    borderRadius: 15,
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+  },
+  premiumContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  premiumText: {
+    flex: 1,
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  upgradeButton: {
+    backgroundColor: '#FFD700',
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  upgradeText: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  closeButton: {
+    padding: 5,
   },
 });
