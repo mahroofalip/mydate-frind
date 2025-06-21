@@ -13,107 +13,32 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import { richProfiles } from '../data/dummydata';
 
 const { width, height } = Dimensions.get('window');
 
-const richProfiles = [
-  {
-    id: '1',
-    name: 'Sophia',
-    age: 24,
-    bio: 'Art curator who believes in love at first sight. Looking for someone to explore museums and coffee shops with.',
-    place: 'Paris, France',
-    distance: '1.5 miles away',
-    lastOnline: '2 mins ago',
-    interests: ['Art', 'Wine Tasting', 'Travel', 'Poetry', 'Dancing'],
-    match: '95%',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=688&q=80',
-    extraImages: [
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80',
-      'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=687&q=80'
-    ],
-    occupation: 'Art Curator',
-    education: "Master's in Art History",
-    lookingFor: 'Long-term relationship',
-  },
-  {
-    id: '2',
-    name: 'Luna',
-    age: 26,
-    bio: 'Moonlight poet and stargazer. Searching for someone to share midnight conversations and sunrise adventures with.',
-    place: 'Santorini, Greece',
-    distance: '3 miles away',
-    lastOnline: 'Just now',
-    interests: ['Astronomy', 'Writing', 'Piano', 'Beach Walks', 'Photography'],
-    match: '97%',
-    image: 'https://images.unsplash.com/photo-1621786033626-7b1f91e8d59f?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    extraImages: [
-      'https://images.unsplash.com/photo-1567532939604-b6b5b0e1607d?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-      'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80'
-    ],
-    occupation: 'Poet & Librarian',
-    education: "BA in Creative Writing",
-    lookingFor: 'Deep emotional connection'
-  },
-  {
-    id: '3',
-    name: 'Isabella',
-    age: 25,
-    bio: 'Floral designer who speaks the language of flowers. Let\'s create our own love story among the blossoms.',
-    place: 'Provence, France',
-    distance: '0.5 miles away',
-    lastOnline: '5 mins ago',
-    interests: ['Botany', 'Watercolor Painting', 'Vintage Books', 'Picnics', 'Folk Music'],
-    match: '93%',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80',
-    extraImages: [
-      'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-      'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80'
-    ],
-    occupation: 'Floral Artist',
-    education: "Horticulture Diploma",
-    lookingFor: 'Romantic partnership'
-  },
-  {
-    id: '4',
-    name: 'Amélie',
-    age: 27,
-    bio: 'Ballet dancer seeking a partner for life\'s intimate waltz. Let\'s find beauty in small moments and grand gestures.',
-    place: 'Vienna, Austria',
-    distance: '2 miles away',
-    lastOnline: '10 mins ago',
-    interests: ['Classical Music', 'Candlelit Dinners', 'Vintage Cinema', 'Charity Work', 'Languages'],
-    match: '96%',
-    image: 'https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    extraImages: [
-      'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-      'https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-4.0.3&auto=format&fit=crop&w=764&q=80'
-    ],
-    occupation: 'Principal Dancer',
-    education: "Vaganova Academy",
-    lookingFor: 'Soulmate'
-  },
-  {
-    id: '5',
-    name: 'Seraphina',
-    age: 23,
-    bio: 'Violinist composing the soundtrack of my life. Looking for a duet partner to harmonize with through rainy days and starlit nights.',
-    place: 'Venice, Italy',
-    distance: '4 miles away',
-    lastOnline: 'Online now',
-    interests: ['Symphonies', 'Sailing', 'Philosophy', 'Antique Shops', 'Tea Ceremonies'],
-    match: '99%',
-    image: 'https://images.unsplash.com/photo-1567532939604-b6b5b0e1607d?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    extraImages: [
-      'https://images.unsplash.com/photo-1485178575877-1a13bf489dfe?ixlib=rb-4.0.3&auto=format&fit=crop&w=1491&q=80',
-      'https://images.unsplash.com/photo-1619855544858-e8e275c3b31a?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80'
-    ],
-    occupation: 'Concert Violinist',
-    education: "Juilliard School",
-    lookingFor: 'Passionate romance'
+const getOnlineStatusStyle = (lastOnline) => {
+  const lower = lastOnline.toLowerCase();
+  
+  if (lower.includes('now') || lower.includes('just now') || lower.includes('online now')) {
+    return { color: '#4CAF50', text: 'Online now' }; // Green
   }
+  
+  const timeMatch = lower.match(/\d+/);
+  if (!timeMatch) return { color: '#F44336', text: lastOnline }; // Red for unknown
+  
+  const timeValue = parseInt(timeMatch[0]);
+  
+  if (lower.includes('min')) {
+    if (timeValue <= 10) {
+      return { color: '#FFEB3B', text: 'Recently online' }; // Yellow
+    }
+    return { color: '#FF9800', text: lastOnline }; // Orange
+  }
+  
+  return { color: '#F44336', text: lastOnline }; // Red for hours/days
+};
 
-];
 
 export default function HomeScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
@@ -130,57 +55,70 @@ export default function HomeScreen({ navigation }) {
     setModalVisible(false);
   };
 
-  const renderItem = ({ item }) => (
-    <View style={styles.cardContainer}>
-      <ImageBackground 
-        source={{ uri: item.image }} 
-        style={styles.image}
-        resizeMode="cover"
-      >
-        <LinearGradient
-          colors={['transparent', 'rgba(0,0,0,0.01)', 'rgba(0,0,0,0.8)']}
-          locations={[0, 0.4, 1]}
-          style={styles.gradient}
-        />
-        <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => alert('Liked!')}>
-            <AntDesign name="hearto" size={28} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton} onPress={() => alert('Passed!')}>
-            <AntDesign name="close" size={28} color="white" />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.infoSection}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{item.name}, {item.age}</Text>
-            <View style={styles.matchBadge}>
-              <Text style={styles.matchText}>{item.match}</Text>
+  const renderItem = ({ item }) => {
+    const onlineStatus = getOnlineStatusStyle(item.lastOnline);
+    
+    return (
+      <View style={styles.cardContainer}>
+        <ImageBackground 
+          source={{ uri: item.image }} 
+          style={styles.image}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['transparent', 'rgba(0,0,0,0.01)', 'rgba(0,0,0,0.8)']}
+            locations={[0, 0.4, 1]}
+            style={styles.gradient}
+          />
+          <View style={styles.headerIcons}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => alert('Liked!')}>
+              <AntDesign name="hearto" size={28} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => alert('Passed!')}>
+              <AntDesign name="close" size={28} color="white" />
+            </TouchableOpacity>
+          </View>
+          <View style={styles.infoSection}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{item.name}, {item.age}</Text>
+              <View style={styles.matchBadge}>
+                <Text style={styles.matchText}>{item.match}</Text>
+              </View>
+            </View>
+            <Text style={styles.place}>{item.place} • {item.distance}</Text>
+            
+            {/* Enhanced Online Status */}
+            <Text style={styles.lastOnline}>
+              Status:{' '}
+              <Text style={{ color: onlineStatus.color, fontWeight: 'bold' }}>
+                {onlineStatus.text}
+              </Text>
+            </Text>
+            
+            <Text style={styles.bio}>{item.bio}</Text>
+            <View style={styles.tagsRow}>
+              {item.interests.map(tag => (
+                <View key={tag} style={styles.tag}>
+                  <Text style={styles.tagText}>{tag}</Text>
+                </View>
+              ))}
+            </View>
+            
+            <View style={styles.actions}>
+              <TouchableOpacity 
+                onPress={() => navigation.navigate('ProfileDetail', { profile: item })} 
+                style={styles.viewProfileBtn}
+              >
+                <MaterialIcons name="visibility" size={24} color="white" />
+                <Text style={styles.buttonText}>View Profile</Text>
+              </TouchableOpacity>
             </View>
           </View>
-          <Text style={styles.place}>{item.place} • {item.distance}</Text>
-          <Text style={styles.lastOnline}>Last online: {item.lastOnline}</Text>
-          <Text style={styles.bio}>{item.bio}</Text>
-          <View style={styles.tagsRow}>
-            {item.interests.map(tag => (
-              <View key={tag} style={styles.tag}>
-                <Text style={styles.tagText}>{tag}</Text>
-              </View>
-            ))}
-          </View>
-          
-          <View style={styles.actions}>
-        <TouchableOpacity 
-          onPress={() => navigation.navigate('ProfileDetail', { profile: item })} 
-          style={styles.viewProfileBtn}
-        >
-          <MaterialIcons name="visibility" size={24} color="white" />
-          <Text style={styles.buttonText}>View Profile</Text>
-        </TouchableOpacity>
+        </ImageBackground>
       </View>
-        </View>
-      </ImageBackground>
-    </View>
-  );
+    );
+  };
+
 
   return (
     <View style={styles.container}>
