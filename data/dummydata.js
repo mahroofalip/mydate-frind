@@ -17,6 +17,7 @@ export const richProfiles = [
     occupation: 'Art Curator',
     education: "Master's in Art History",
     lookingFor: 'Long-term relationship',
+    
   },
   {
     id: '2',
