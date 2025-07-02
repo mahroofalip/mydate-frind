@@ -1,0 +1,38 @@
+<svg width="400" height="300" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+  <!-- Sky gradient -->
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#ffd1dc"/>
+      <stop offset="100%" stop-color="#ffafcc"/>
+    </linearGradient>
+    <linearGradient id="ground" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0%" stop-color="#d8bfd8"/>
+      <stop offset="100%" stop-color="#b19cd9"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Sky -->
+  <rect width="400" height="200" fill="url(#sky)"/>
+  
+  <!-- Ground -->
+  <rect y="200" width="400" height="100" fill="url(#ground)"/>
+  
+  <!-- Sunset -->
+  <circle cx="300" cy="50" r="40" fill="#ff9e80" opacity="0.8"/>
+  
+  <!-- Heart Balloons -->
+  <path d="M100,150 Q110,130 120,150 T140,150" fill="#ff6b6b" opacity="0.8"/>
+  <path d="M140,150 Q150,130 160,150 T180,150" fill="#ff8e8e" opacity="0.8"/>
+  <path d="M180,150 Q190,130 200,150 T220,150" fill="#ff6b6b" opacity="0.8"/>
+  
+  <!-- Couple Silhouette -->
+  <circle cx="250" cy="180" r="15" fill="#333"/>
+  <circle cx="280" cy="180" r="15" fill="#333"/>
+  <path d="M250,195 L250,220 M280,195 L280,220" stroke="#333" stroke-width="3"/>
+  <path d="M250,220 L240,240 M280,220 L290,240" stroke="#333" stroke-width="3"/>
+  <path d="M250,220 L260,240 M280,220 L270,240" stroke="#333" stroke-width="3"/>
+  <path d="M250,200 Q265,190 280,200" stroke="#333" stroke-width="3" fill="none"/>
+  
+  <!-- Heart between couple -->
+  <path d="M265,190 Q270,180 275,190 T285,190" fill="#ff6b6b"/>
+</svg>

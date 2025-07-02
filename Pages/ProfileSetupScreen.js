@@ -91,32 +91,32 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   // Handle form submission
-  const handleNext = () => {
-    // if (!validateForm()) return;
+  const handleNext = async () => {
+    const { data: { user }, error: userErr } = await supabase.auth.getUser();
+    if (userErr) return alert('Not signed in');
 
-    // setLoading(true);
     
-    const profileData = {
-      name,
-      bio,
-      age,
-      gender,
-      location,
-      occupation,
-      education,
-      interests: interests.split(',').map(i => i.trim()).filter(i => i),
-      lookingFor,
-      selfie,
-      extraImages,
-    };
-
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
-      navigation.navigate('MainTabs');
-    }, 1500);
+    
+  const payload = {
+    id: user.id,
+    full_name: name,
+    bio,
+    birthdate: age,
+    gender,
+    location,
+    occupation,
+    education,
+    interests: interests.split(',').map(i => i.trim()).join(','),
+    looking_for: lookingFor,
+    selfie_url,
+    extra_images: extraImages.join(',')
   };
 
+  const { error } = await supabase.from('profiles').insert([payload]);
+  if (error) alert(error.message);
+  else navigation.replace('MainTabs');
+
+};
   // Form sections
   const renderHeader = () => (
     <View style={styles.header}>

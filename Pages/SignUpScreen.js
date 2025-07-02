@@ -1,11 +1,22 @@
 // screens/SignUpScreen.js
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { supabase } from '../lib/supabase';
 
 export default function SignUpScreen({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  
+  
+const handleSignUp = async () => {
+  if (!name || !email || !password) return alert('Fill all fields');
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) alert(error.message);
+  else 
+  navigation.navigate('EmailVerification', { email , password});
+  // else navigation.navigate('ProfileSetupScreen', { name });
+};
 
   return (
     <KeyboardAvoidingView 
@@ -45,7 +56,7 @@ export default function SignUpScreen({ navigation }) {
           onChangeText={setPassword}
         />
 
-        <TouchableOpacity style={styles.button}>
+        <TouchableOpacity style={styles.button} onPress={handleSignUp}>
           <Text style={styles.buttonText}>Continue Your Journey</Text>
         </TouchableOpacity>
 
