@@ -1,10 +1,54 @@
-// WelcomeScreen.js
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Platform } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Platform, Linking } from 'react-native';
+import { supabase } from '../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
+
 export default function WelcomeScreen({ navigation }) {
+
+useEffect(() => {
+    const handleDeepLink = async () => {
+      const url = await Linking.getInitialURL();
+
+      if (url && url.includes('access_token')) {
+        const params = getParamsFromURL(url);
+
+        const { data, error } = await supabase.auth.setSession({
+          access_token: params.access_token,
+          refresh_token: params.refresh_token,
+        });
+
+        if (error) {
+          console.log('Set session error:', error.message);
+        } else {
+          console.log('Session set successfully!');
+          navigation.replace('Login'); // or 'Home'
+        }
+      } else {
+        console.log('No deep link found or no access_token in URL');
+      }
+    };
+
+    handleDeepLink();
+  }, []);
+
+  const getParamsFromURL = (url) => {
+    const params = {};
+    const queryString = url.split('#')[1]; // split after '#'
+    const pairs = queryString?.split('&') || [];
+
+    for (const pair of pairs) {
+      const [key, value] = pair.split('=');
+      params[key] = decodeURIComponent(value);
+    }
+
+    return params;
+  };
+
+
+
+
   return (
     <View style={styles.container}>
       <Image

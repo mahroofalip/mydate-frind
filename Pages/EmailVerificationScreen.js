@@ -15,22 +15,33 @@ export default function EmailVerificationScreen({ navigation  , route}) {
   const [message, setMessage] = useState('');
   const { email,password } = route.params;
 
-  const handleLoginPress = async () => {
-  const { data, error } = await supabase.auth.getUser({email,password});
-     
+ const handleLoginPress = async () => {
+  setMessage('');
+
+  // Step 1: Sign in
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
+
   if (error) {
-    setMessage(`Error: ${error.message}`);
+    setMessage(`Login error: ${error.message}`);
     return;
   }
 
   const user = data.user;
-  
+
+  // Step 2: Check if email is confirmed
   if (user?.email_confirmed_at) {
-    navigation.navigate('Login');
+    // ✅ Email is verified
+    navigation.navigate('Login', { user });
   } else {
+    // ❌ Not verified
     setMessage('Please verify your email before logging in.');
+    await supabase.auth.signOut();
   }
 };
+
 
 
   return (

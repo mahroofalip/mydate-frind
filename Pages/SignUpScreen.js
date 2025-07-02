@@ -1,5 +1,5 @@
 // screens/SignUpScreen.js
-import React, { useState } from 'react';
+import  { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 
@@ -8,14 +8,12 @@ export default function SignUpScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   
-  
 const handleSignUp = async () => {
   if (!name || !email || !password) return alert('Fill all fields');
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) alert(error.message);
   else 
   navigation.navigate('EmailVerification', { email , password});
-  // else navigation.navigate('ProfileSetupScreen', { name });
 };
 
   return (
@@ -46,6 +44,7 @@ const handleSignUp = async () => {
           value={email}
           onChangeText={setEmail}
         />
+       
 
         <TextInput
           style={styles.input}
@@ -56,19 +55,26 @@ const handleSignUp = async () => {
           onChangeText={setPassword}
         />
 
+
         <TouchableOpacity style={styles.button} onPress={handleSignUp}>
           <Text style={styles.buttonText}>Continue Your Journey</Text>
         </TouchableOpacity>
 
+      
+      </View>
+
         <TouchableOpacity 
-          onPress={() => navigation.navigate('Login')}
+          onPress={() => {
+    
+    navigation.navigate('Login');
+  }}
+
           style={styles.loginLink}
         >
           <Text style={styles.linkText}>
             Already have a love story? <Text style={styles.linkHighlight}>Log In</Text>
           </Text>
         </TouchableOpacity>
-      </View>
 
       <View style={styles.footer}>
         <Text style={styles.quote}>"Love recognizes no barriers."</Text>
