@@ -11,6 +11,7 @@ import {
   ActivityIndicator
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { supabase } from '../lib/supabase'; // make sure this path is correct
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
@@ -18,47 +19,51 @@ export default function LoginScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  // Mock authentication function - replace with real API call
-  const authenticateUser = async () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(true); // Always return true for demo
-      }, 1000);
-    });
-  };
-
   const handleLogin = async () => {
-    if (!email || !password) {
-      setError('Please enter both email and password');
+  if (!email || !password) {
+    setError('Please enter both email and password');
+    return;
+  }
+
+  setLoading(true);
+  setError('');
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (error) {
+      setError(`Login error: ${error.message}`);
       return;
     }
 
-    setLoading(true);
-    setError('');
-    
-    try {
-      // Replace with actual authentication logic
-      const isAuthenticated = await authenticateUser();
-      
-      if (isAuthenticated) {
-        // Check if profile exists
-        const profileExists = await checkProfileExists(email);
-        
-        if (profileExists) {
-          navigation.navigate('MainTabs');
-        } else {
-          navigation.navigate('ProfileSetupScreen');
-        }
-      }
-    } catch (err) {
-      setError('Login failed. Please try again.');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const user = data.user;
 
-  // Check if profile exists in AsyncStorage
+    // ✅ Check if email is confirmed
+    if (!user?.email_confirmed_at) {
+      setError('Please verify your email before logging in.');
+      return;
+    }
+
+    await AsyncStorage.setItem('@user', JSON.stringify(user));
+
+    const profileExists = await checkProfileExists(email);
+
+    if (profileExists) {
+      navigation.navigate('MainTabs');
+    } else {
+      navigation.navigate('ProfileSetupScreen');
+    }
+  } catch (err) {
+    setError('Login failed. Please try again.');
+    console.error(err);
+  } finally {
+    setLoading(false);
+  }
+};
+
   const checkProfileExists = async (userEmail) => {
     try {
       const profileData = await AsyncStorage.getItem(`@profile_${userEmail}`);
@@ -131,8 +136,7 @@ export default function LoginScreen({ navigation }) {
   );
 }
 
-// Unified Styles for both screens
-const unifiedStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fffafb',
@@ -241,6 +245,3 @@ const unifiedStyles = StyleSheet.create({
     fontSize: 15,
   }
 });
-
-// Apply unified styles to both screens
-const styles = unifiedStyles;

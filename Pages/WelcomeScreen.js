@@ -7,6 +7,28 @@ const { width, height } = Dimensions.get('window');
 
 export default function WelcomeScreen({ navigation }) {
 
+
+    useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Session:', session);
+      
+      if (session?.user?.email_confirmed_at) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'MainTabs' }],
+        });
+      } else {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Welcome' }],
+        });
+      }
+    };
+
+    checkSession();
+  }, []);
+
 useEffect(() => {
     const handleDeepLink = async () => {
       const url = await Linking.getInitialURL();

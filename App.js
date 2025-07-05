@@ -16,11 +16,6 @@ import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatScreen } from './Pages/ChatScreen';
 import EmailVerificationScreen from './Pages/EmailVerificationScreen';
 
-//
-import { useEffect } from 'react';
-import { Linking } from 'react-native';
-import { supabase } from './lib/supabase'; 
-//
 
 
 const Tab = createBottomTabNavigator();
@@ -99,6 +94,7 @@ function MainTabs() {
 
 const Stack = createNativeStackNavigator();
 export default function App() {
+
 
   
 
