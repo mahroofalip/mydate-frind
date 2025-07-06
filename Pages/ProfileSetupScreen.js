@@ -105,10 +105,7 @@ const handleNext = async () => {
     // 1. Upload selfie to Supabase Storage
     let selfieUrl = null;
     if (selfie) {
-      console.log(user.id,"user iddddddddddddddddddddddddddddddd");
-      
-      console.log(selfie,"selfieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
-      
+     
       const fileExt = selfie.split('.').pop();
       const fileName = `${user.id}/selfie.${fileExt}`;
       const { data, error: uploadErr } = await supabase.storage
@@ -184,13 +181,6 @@ const handleNext = async () => {
 };
 
 
-
-
-
-
-
-
-//////////
   // Form sections
   const renderHeader = () => (
     <View style={styles.header}>
