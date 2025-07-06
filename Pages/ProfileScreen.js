@@ -11,6 +11,7 @@ import {
   TextInput
 } from 'react-native';
 import { MaterialIcons, FontAwesome, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
 export default function ProfileScreen({ navigation }) {
   const [user] = useState({
@@ -60,10 +61,19 @@ export default function ProfileScreen({ navigation }) {
     alert('Redirect to premium upgrade screen');
   };
 
-  const handleLogout = () => {
-    // Logout logic
-    navigation.navigate('Welcome');
-  };
+  const handleLogout = async () => {
+  const { error } = await supabase.auth.signOut();
+  if (error) {
+    console.error('Logout failed:', error.message);
+    Alert.alert('Error', 'Failed to log out. Please try again.');
+  } else {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Welcome' }],
+    });
+  }
+};
+
 
   return (
     <View style={styles.container}>
