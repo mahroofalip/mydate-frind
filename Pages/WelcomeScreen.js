@@ -26,7 +26,6 @@ export default function WelcomeScreen({ navigation }) {
       .single();
 
     if (error && error.code !== 'PGRST116') { // 'PGRST116' = no rows returned
-      console.log('Error fetching profile:', error.message);
       setLoading(false);
       return;
     }
@@ -47,7 +46,6 @@ export default function WelcomeScreen({ navigation }) {
       .list(`${userId}/`);
 
     if (listError) {
-      console.log('Error listing files:', listError.message);
       setLoading(false);
       return;
     }
@@ -68,7 +66,6 @@ export default function WelcomeScreen({ navigation }) {
       profile?.looking_for,
     ];
 
-    console.log('Validation fields:', requiredFields);
 
     const isProfileComplete = requiredFields.every(field => {
       if (typeof field === 'boolean') return field;
@@ -105,16 +102,13 @@ export default function WelcomeScreen({ navigation }) {
         });
 
         if (error) {
-          console.log('Set session error:', error.message);
         } else {
-          console.log('Session set successfully!');
           navigation.reset({
             index: 0,
             routes: [{ name: 'MainTabs' }],
           });
         }
       } else {
-        console.log('No deep link found or no access_token in URL');
       }
     };
 
