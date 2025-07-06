@@ -48,10 +48,7 @@ export default function ProfileScreen({ navigation }) {
     // setEditField(field);
     // setEditValue(value);
     // setEditModalVisible(true);
-   navigation.reset({
-      index: 0,
-      routes: [{ name: 'ProfileSetupScreen' }],
-    });
+   navigation.navigate('ProfileUpdateScreen')
   };
 
   const saveEdit = () => {
@@ -83,7 +80,7 @@ export default function ProfileScreen({ navigation }) {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
           <MaterialIcons name="arrow-back" size={24} color="#FF5A5F" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Profile</Text>
@@ -142,7 +139,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Photos</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('EditProfile')}>
+            <TouchableOpacity onPress={() => navigation.navigate('ProfileUpdateScreen')}>
               <Text style={styles.editLink}>Edit</Text>
             </TouchableOpacity>
           </View>
@@ -163,7 +160,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Interests</Text>
-            <TouchableOpacity onPress={() => handleEdit('interests', user.interests.join(', '))}>
+            <TouchableOpacity onPress={() => handleEdit('ProfileUpdateScreen', user.interests.join(', '))}>
               <Text style={styles.editLink}>Edit</Text>
             </TouchableOpacity>
           </View>
@@ -180,7 +177,7 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
           
-          <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('EditProfile')}>
+          <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('ProfileUpdateScreen')}>
             <MaterialIcons name="person" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>Edit Profile</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />

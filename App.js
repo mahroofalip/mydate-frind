@@ -16,6 +16,7 @@ import SearchScreen from './Pages/SearchScreen'; // Import your new SearchScreen
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { ChatScreen } from './Pages/ChatScreen';
 import EmailVerificationScreen from './Pages/EmailVerificationScreen';
+import ProfileUpdateScreen from './Pages/ProfileUpdateScreen';
 
 
 
@@ -106,12 +107,18 @@ export default function App() {
         <Stack.Screen name="SignUp" component={SignUpScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="ProfileSetupScreen" component={ProfileSetupScreen} />
+        <Stack.Screen name="ProfileUpdateScreen" component={ProfileUpdateScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen}/>
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
         <Stack.Screen name="ChatScreen" component={ChatScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
+        <Stack.Screen name="MatchesScreen" component={MatchesScreen} />
+        <Stack.Screen name="MessagesScreen" component={MessagesScreen} />
+        <Stack.Screen name="LikesScreen" component={LikesScreen} />
+        <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
+      
       </Stack.Navigator>
     </NavigationContainer>
   );

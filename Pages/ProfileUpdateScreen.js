@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -20,7 +20,7 @@ import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
-export default function ProfileSetupScreen({ navigation }) {
+export default function ProfileUpdateScreen({ navigation }) {
   // State variables
   const [name, setName] = useState('');
   const [bio, setBio] = useState('');
@@ -31,19 +31,54 @@ export default function ProfileSetupScreen({ navigation }) {
   const [education, setEducation] = useState('');
   const [interests, setInterests] = useState('');
   const [lookingFor, setLookingFor] = useState('');
-  const [selfie, setSelfie] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [errors, setErrors] = useState({});
   
   const scrollViewRef = useRef();
+
+  // Fetch existing profile data
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr || !user) throw new Error('User not authenticated');
+
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (error) throw error;
+        if (profile) {
+          setName(profile.full_name || '');
+          setBio(profile.bio || '');
+          setAge(profile.age || '');
+          setGender(profile.gender || '');
+          setLocation(profile.location || '');
+          setOccupation(profile.occupation || '');
+          setEducation(profile.education || '');
+          setInterests(profile.interests || '');
+          setLookingFor(profile.looking_for || '');
+          setExtraImages(profile.extra_images ? profile.extra_images.split(',') : []);
+        }
+      } catch (err) {
+        Alert.alert('Error', err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   // Validate form fields
   const validateForm = () => {
     const newErrors = {};
     
     if (!name.trim()) newErrors.name = 'Name is required';
-    if (!selfie) newErrors.selfie = 'Selfie is required';
     if (!age) newErrors.age = 'Age is required';
     if (age && (parseInt(age) < 18 || parseInt(age) > 100)) 
       newErrors.age = 'Age must be between 18-100';
@@ -56,7 +91,7 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   // Handle image selection
-  const handleImageSelection = async (isCamera) => {
+  const handleImageSelection = async () => {
     const options = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -65,18 +100,10 @@ export default function ProfileSetupScreen({ navigation }) {
     };
 
     try {
-      const result = isCamera 
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-
-      if (!result.canceled) {
-        const uri = result.assets[0].uri;
-        
-        if (!selfie) {
-          setSelfie(uri);
-        } else if (extraImages.length < 4) {
-          setExtraImages([...extraImages, uri]);
-        }
+      const result = await ImagePicker.launchImageLibraryAsync(options);
+      
+      if (!result.canceled && extraImages.length < 4) {
+        setExtraImages([...extraImages, result.assets[0].uri]);
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to select image. Please try again.');
@@ -90,123 +117,99 @@ export default function ProfileSetupScreen({ navigation }) {
     setExtraImages(newImages);
   };
   
-const handleNext = async () => {
-  if (!validateForm()) return;
+  const handleUpdate = async () => {
+    if (!validateForm()) return;
 
-  setLoading(true);
+    setUpdating(true);
 
-  try {
-    const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !user) {
-      Alert.alert('Error', 'User not authenticated');
-      return;
-    }
-
-    // --- 1. Upload selfie ---
-    let selfieUploaded = false;
-    if (selfie) {
-      const fileExt = selfie.split('.').pop();
-      const fileName = `${user.id}/selfie.${fileExt}`;
-      const { error: uploadErr } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, {
-          uri: selfie,
-          type: 'image/jpeg',
-          name: fileName,
-        }, { upsert: true });
-      if (!uploadErr) selfieUploaded = true;
-    }
-
-    // --- 2. Upload extra images ---
-    let extraImageUploaded = false;
-    for (let i = 0; i < extraImages.length; i++) {
-      const uri = extraImages[i];
-      const fileExt = uri.split('.').pop();
-      const fileName = `${user.id}/extra_${i}.${fileExt}`;
-      const { error: extraErr } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, {
-          uri,
-          type: 'image/jpeg',
-          name: fileName,
-        }, { upsert: true });
-      if (!extraErr && !extraImageUploaded) {
-        extraImageUploaded = true;
+    try {
+      const { data: { user }, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !user) {
+        Alert.alert('Error', 'User not authenticated');
+        return;
       }
+
+      // Upload new extra images
+      const uploadedExtraUrls = [...extraImages];
+      
+      for (let i = 0; i < extraImages.length; i++) {
+        const uri = extraImages[i];
+        
+        // Only upload new images (local URIs)
+        if (uri.startsWith('file')) {
+          const fileExt = uri.split('.').pop();
+          const fileName = `${user.id}/extra_${Date.now()}_${i}.${fileExt}`;
+          const { error: extraErr } = await supabase.storage
+            .from('profile-photos')
+            .upload(fileName, {
+              uri,
+              type: 'image/jpeg',
+              name: fileName,
+            });
+
+          if (!extraErr) {
+            const { data: urlData } = supabase.storage
+              .from('profile-photos')
+              .getPublicUrl(fileName);
+            
+            // Replace local URI with public URL
+            uploadedExtraUrls[i] = urlData.publicUrl;
+          }
+        }
+      }
+
+      // Update profile
+      const payload = {
+        full_name: name,
+        bio,
+        age,
+        gender,
+        location,
+        occupation,
+        education,
+        interests: interests.split(',').map(i => i.trim()).join(','),
+        looking_for: lookingFor,
+        extra_images: uploadedExtraUrls.join(','),
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', user.id);
+
+      if (error) throw error;
+      
+      Alert.alert('Success', 'Profile updated successfully!');
+      navigation.replace('ProfileScreen');
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setUpdating(false);
     }
-
-    // --- 3. Validate before insert ---
-    if (!selfieUploaded || !extraImageUploaded) {
-      Alert.alert('Incomplete Images', 'Please upload a selfie and at least one extra image before proceeding.');
-      return;
-    }
-
-    // --- 4. Insert profile (without storing image URLs) ---
-    const payload = {
-      id: user.id,
-      full_name: name,
-      bio,
-      age,
-      gender,
-      location,
-      occupation,
-      education,
-      interests: interests.split(',').map(i => i.trim()).join(','),
-      looking_for: lookingFor,
-    };
-
-    const { error } = await supabase.from('profiles').insert([payload]);
-    if (error) throw error;
-
-    navigation.replace('MainTabs');
-
-  } catch (err) {
-    Alert.alert('Error', err.message);
-  } finally {
-    setLoading(false);
-  }
-};
-
-
+  };
 
   // Form sections
   const renderHeader = () => (
     <View style={styles.header}>
       <TouchableOpacity 
-        onPress={() => navigation.goBack()}
+        onPress={() => navigation.replace('ProfileScreen')}
         style={styles.backButton}
       >
         <Ionicons name="arrow-back" size={24} color="#6366F1" />
       </TouchableOpacity>
-      <Text style={styles.title}>Create Your Profile</Text>
-      <Text style={styles.subtitle}>Complete your profile to get started</Text>
+      <Text style={styles.title}>Update Your Profile</Text>
+      <Text style={styles.subtitle}>Keep your information up to date</Text>
     </View>
   );
 
   const renderPhotoSection = () => (
     <View style={styles.card}>
       <View style={styles.sectionHeader}>
-        <MaterialIcons name="photo-camera" size={20} color="#6366F1" />
+        <MaterialIcons name="photo-library" size={20} color="#6366F1" />
         <Text style={styles.sectionTitle}>Profile Photos</Text>
       </View>
       
       <View style={styles.photoSection}>
-        <Text style={styles.label}>Verify With Selfie</Text>
-        <TouchableOpacity 
-          onPress={() => handleImageSelection(true)} 
-          style={styles.avatarWrapper}
-        >
-          {selfie ? (
-            <Image source={{ uri: selfie }} style={styles.avatar} />
-          ) : (
-            <View style={[styles.avatarPlaceholder, errors.selfie && styles.errorBorder]}>
-              <Feather name="camera" size={32} color="#9CA3AF" />
-              <Text style={styles.placeholderText}>Tap to take</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-        {errors.selfie && <Text style={styles.errorText}>{errors.selfie}</Text>}
-
         <Text style={styles.label}>Additional Photos (up to 4)</Text>
         <View style={styles.photosWrapper}>
           {extraImages.map((img, index) => (
@@ -222,7 +225,7 @@ const handleNext = async () => {
           ))}
           {extraImages.length < 4 && (
             <TouchableOpacity 
-              onPress={() => handleImageSelection(false)} 
+              onPress={handleImageSelection} 
               style={styles.addPhoto}
             >
               <Feather name="plus" size={28} color="#9CA3AF" />
@@ -277,7 +280,7 @@ const handleNext = async () => {
             maxLength={3}
           />
           {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
-                </View>
+        </View>
 
         <View style={[styles.inputContainer, { flex: 2 }]}>
           <Text style={styles.inputLabel}>Gender</Text>
@@ -404,17 +407,26 @@ const handleNext = async () => {
 
   const renderSubmitButton = () => (
     <TouchableOpacity 
-      style={[styles.button, loading && styles.buttonDisabled]} 
-      onPress={handleNext}
-      disabled={loading}
+      style={[styles.button, updating && styles.buttonDisabled]} 
+      onPress={handleUpdate}
+      disabled={updating}
     >
-      {loading ? (
+      {updating ? (
         <ActivityIndicator size="small" color="white" />
       ) : (
-        <Text style={styles.buttonText}>Complete Profile</Text>
+        <Text style={styles.buttonText}>Update Profile</Text>
       )}
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#6366F1" />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
+      </View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -440,9 +452,21 @@ const handleNext = async () => {
 }
 
 const styles = StyleSheet.create({
+  // Reuse styles from ProfileSetupScreen with minor adjustments
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F9FAFB',
+  },
+  loadingText: {
+    marginTop: 20,
+    color: '#6B7280',
+    fontSize: 16,
   },
   scrollView: {
     flex: 1,
@@ -508,34 +532,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 12,
-  },
-  avatarWrapper: {
-    alignSelf: 'center',
-    marginBottom: 20,
-  },
-  avatar: {
-    width: 120,
-    height: 120,
-    borderRadius: 100,
-    borderWidth: 3,
-    borderColor: '#E0E7FF',
-  },
-  avatarPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 100,
-    backgroundColor: '#F3F4F6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
-    borderStyle: 'dashed',
-  },
-  placeholderText: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    fontWeight: '500',
-    marginTop: 8,
   },
   photosWrapper: {
     flexDirection: 'row',

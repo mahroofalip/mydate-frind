@@ -7,21 +7,90 @@ const { width, height } = Dimensions.get('window');
 export default function WelcomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
 
-  // Handle session on mount
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      console.log('Session:', session);
-      if (session?.user?.email_confirmed_at) {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'MainTabs' }],
-        });
-      }
+ useEffect(() => {
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.user?.email_confirmed_at) {
       setLoading(false);
-    };
-    checkSession();
-  }, []);
+      return;
+    }
+
+    const userId = session.user.id;
+
+    // 1. Check if profile exists
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('full_name, age, gender, location, looking_for')
+      .eq('id', userId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // 'PGRST116' = no rows returned
+      console.log('Error fetching profile:', error.message);
+      setLoading(false);
+      return;
+    }
+
+    if (!profile) {
+      // No profile found → go to setup
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'ProfileSetupScreen' }],
+      });
+      setLoading(false);
+      return;
+    }
+
+    // 2. Profile exists → check if complete
+    const { data: files, error: listError } = await supabase.storage
+      .from('profile-photos')
+      .list(`${userId}/`);
+
+    if (listError) {
+      console.log('Error listing files:', listError.message);
+      setLoading(false);
+      return;
+    }
+
+    // Check for selfie and extra images
+    const selfieExists = files?.some(file => file.name.startsWith('selfie.'));
+    const extraImageExists = files?.some(file =>
+      /^extra_[0-2]\./.test(file.name)
+    );
+
+    const requiredFields = [
+      selfieExists,
+      extraImageExists,
+      profile?.full_name,
+      profile?.age,
+      profile?.gender,
+      profile?.location,
+      profile?.looking_for,
+    ];
+
+    console.log('Validation fields:', requiredFields);
+
+    const isProfileComplete = requiredFields.every(field => {
+      if (typeof field === 'boolean') return field;
+      return field && field.toString().trim() !== '';
+    });
+
+    navigation.reset({
+      index: 0,
+      routes: [{
+        name: isProfileComplete ? 'MainTabs' : 'ProfileUpdateScreen',
+      }],
+    });
+
+    setLoading(false);
+  };
+
+  checkSession();
+}, []);
+
+
+
+
 
   // Handle deep links
   useEffect(() => {
