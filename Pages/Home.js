@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,11 @@ import {
   TextInput,
   Alert,
   Dimensions,
+  ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
-import { richProfiles } from '../data/dummydata';
+import { supabase } from '../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,30 +22,73 @@ const getOnlineStatusStyle = (lastOnline) => {
   const lower = lastOnline.toLowerCase();
 
   if (lower.includes('now') || lower.includes('just now') || lower.includes('online now')) {
-    return { color: '#4CAF50', text: 'Online now' }; // Green
+    return { color: '#4CAF50', text: 'Online now' };
   }
 
   const timeMatch = lower.match(/\d+/);
-  if (!timeMatch) return { color: '#F44336', text: lastOnline }; // Red for unknown
+  if (!timeMatch) return { color: '#F44336', text: lastOnline };
 
   const timeValue = parseInt(timeMatch[0]);
 
   if (lower.includes('min')) {
     if (timeValue <= 10) {
-      return { color: '#FFEB3B', text: 'Recently online' }; // Yellow
+      return { color: '#FFEB3B', text: 'Recently online' };
     }
-    return { color: '#FF9800', text: lastOnline }; // Orange
+    return { color: '#FF9800', text: lastOnline };
   }
 
-  return { color: '#F44336', text: lastOnline }; // Red for hours/days
+  return { color: '#F44336', text: lastOnline };
 };
 
-
 export default function HomeScreen({ navigation }) {
+  const [profiles, setProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selected, setSelected] = useState(null);
   const [message, setMessage] = useState('');
   const listRef = useRef(null);
+
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        // Get current user ID
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          throw new Error('User not authenticated');
+        }
+
+        // Fetch profiles excluding current user
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .neq('id', user.id); // Exclude current user
+
+        if (error) throw error;
+        
+        // Map Supabase data to our profile format
+        const formattedProfiles = data.map(profile => ({
+          id: profile.id,
+          name: profile.full_name,
+          age: profile.age,
+          image: profile.extra_images.split(',')[0].trim(), // Use selfie as main image
+          place: profile.location,
+          distance: 'Nearby', // Placeholder - could calculate real distance later
+          lastOnline: 'Online now', // Placeholder
+          bio: profile.bio,
+          interests: profile.interests ? profile.interests.split(',').slice(0, 3) : [],
+          match: `${Math.floor(Math.random() * 30) + 70}%` // Random match percentage
+        }));
+
+        setProfiles(formattedProfiles);
+      } catch (error) {
+        Alert.alert('Error', error.message || 'Failed to load profiles');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfiles();
+  }, []);
 
   const sendMessage = () => {
     if (!message.trim()) {
@@ -87,7 +131,6 @@ export default function HomeScreen({ navigation }) {
             </View>
             <Text style={styles.place}>{item.place} • {item.distance}</Text>
 
-            {/* Enhanced Online Status */}
             <Text style={styles.lastOnline}>
               Status:{' '}
               <Text style={{ color: onlineStatus.color, fontWeight: 'bold' }}>
@@ -107,19 +150,11 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.actions}>
               <TouchableOpacity
                 style={styles.messageButton}
-                // onPress={() => setModalVisible(true)}
                 onPress={() => navigation.navigate('ProfileDetail', { profile: item })}
               >
                 <MaterialIcons name="visibility" size={24} color="white" />
                 <Text style={styles.messageButtonText}>View Profile</Text>
               </TouchableOpacity>
-              {/* <TouchableOpacity 
-                onPress={() => navigation.navigate('ProfileDetail', { profile: item })} 
-                style={styles.viewProfileBtn}
-              >
-                <MaterialIcons name="visibility" size={24} color="white" />
-                <Text style={styles.buttonText}>View Profile</Text>
-              </TouchableOpacity> */}
             </View>
           </View>
         </ImageBackground>
@@ -127,13 +162,30 @@ export default function HomeScreen({ navigation }) {
     );
   };
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF5A5F" />
+        <Text style={styles.loadingText}>Finding people near you...</Text>
+      </View>
+    );
+  }
+
+  if (profiles.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <MaterialIcons name="group-off" size={80} color="#888" />
+        <Text style={styles.emptyText}>No profiles found</Text>
+        <Text style={styles.emptySubtext}>Try again later or expand your search</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-
       <FlatList
         ref={listRef}
-        data={richProfiles}
+        data={profiles}
         keyExtractor={item => item.id}
         horizontal
         pagingEnabled
@@ -175,12 +227,43 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
       </Modal>
-
     </View>
   );
 }
 
+// Add these new styles
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000'
+  },
+  loadingText: {
+    marginTop: 20,
+    color: '#fff',
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+    padding: 20
+  },
+  emptyText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 20
+  },
+  emptySubtext: {
+    fontSize: 16,
+    color: '#aaa',
+    marginTop: 10,
+    textAlign: 'center'
+  },
+  // ... keep all your existing styles below ...
   messageButton: {
     flexDirection: 'row',
     backgroundColor: '#FF5A5F',
@@ -195,14 +278,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 18,
     marginLeft: 10,
-  },
-  viewProfileBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#8B5CF6',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 30,
-    alignItems: 'center',
   },
   container: {
     flex: 1,
@@ -318,22 +393,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 5,
-  },
-  messageBtn: {
-    flexDirection: 'row',
-    backgroundColor: '#FF5A5F',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: '70%',
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 18,
-    marginLeft: 10,
   },
   modalOverlay: {
     flex: 1,

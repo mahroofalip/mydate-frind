@@ -1,26 +1,106 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { 
+  View, 
+  Text, 
+  StyleSheet, 
+  FlatList, 
+  Image, 
+  TouchableOpacity, 
+  Dimensions,
+  ActivityIndicator,
+  TextInput
+} from 'react-native';
 import { MaterialIcons, FontAwesome, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { matchesData } from '../data/matchesData';
+import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
-
-// Sample match data
 
 export default function MatchesScreen() {
   const [activeTab, setActiveTab] = useState('all');
   const [searchActive, setSearchActive] = useState(false);
+  const [profiles, setProfiles] = useState([]);
+  const [filteredProfiles, setFilteredProfiles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   
-  const renderMatchItem = ({ item }) => (
+  // Fetch profiles from Supabase
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        // Add mock match percentage (since we don't have this in the database)
+        const profilesWithMatch = data.map(profile => ({
+          ...profile,
+          matchPercentage: Math.floor(Math.random() * 41) + 60, // Random between 60-100%
+          lastMessage: "Say hello to start a conversation!", // Default message
+          time: "Just now" // Default time
+        }));
+
+        setProfiles(profilesWithMatch);
+        setFilteredProfiles(profilesWithMatch);
+      } catch (error) {
+        console.error('Error fetching profiles:', error);
+        Alert.alert('Error', 'Failed to load profiles');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfiles();
+  }, []);
+
+  // Filter profiles based on search query
+  useEffect(() => {
+    if (searchQuery) {
+      const filtered = profiles.filter(profile => 
+        profile.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        profile.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        profile.interests?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredProfiles(filtered);
+    } else {
+      setFilteredProfiles(profiles);
+    }
+  }, [searchQuery, profiles]);
+
+  // Filter by active tab
+  const getFilteredProfiles = () => {
+    if (activeTab === 'unread') {
+      return filteredProfiles.filter(profile => profile.unread);
+    } else if (activeTab === 'recent') {
+      // Get profiles created in the last 7 days
+      const oneWeekAgo = new Date();
+      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+      return filteredProfiles.filter(profile => 
+        new Date(profile.created_at) > oneWeekAgo
+      );
+    }
+    return filteredProfiles;
+  };
+
+  const renderProfileItem = ({ item }) => (
     <TouchableOpacity style={styles.matchCard}>
       <View style={styles.matchCardContent}>
-        <Image source={{ uri: item.image }} style={styles.matchImage} />
+        {item.selfie_url ? (
+          <Image source={{ uri: item.selfie_url }} style={styles.matchImage} />
+        ) : (
+          <View style={styles.avatarPlaceholder}>
+            <MaterialCommunityIcons name="account" size={40} color="#9CA3AF" />
+          </View>
+        )}
         
         {item.unread && <View style={styles.unreadBadge} />}
         
         <View style={styles.matchInfo}>
           <View style={styles.matchHeader}>
-            <Text style={styles.matchName}>{item.name}, {item.age}</Text>
+            <Text style={styles.matchName}>{item.full_name}, {item.age}</Text>
             <View style={styles.matchPercentageContainer}>
               <MaterialCommunityIcons name="heart" size={16} color="#FF5A5F" />
               <Text style={styles.matchPercentage}>{item.matchPercentage}%</Text>
@@ -45,6 +125,15 @@ export default function MatchesScreen() {
       </View>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF5A5F" />
+        <Text style={styles.loadingText}>Loading profiles...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -76,6 +165,8 @@ export default function MatchesScreen() {
             placeholder="Search matches..."
             placeholderTextColor="#888"
             style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
       )}
@@ -110,11 +201,11 @@ export default function MatchesScreen() {
         </TouchableOpacity>
       </View>
       
-      {/* Matches List */}
-      {matchesData.length > 0 ? (
+      {/* Profiles List */}
+      {getFilteredProfiles().length > 0 ? (
         <FlatList
-          data={matchesData}
-          renderItem={renderMatchItem}
+          data={getFilteredProfiles()}
+          renderItem={renderProfileItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -127,13 +218,20 @@ export default function MatchesScreen() {
             color="#FF5A5F" 
             style={styles.emptyIcon}
           />
-          <Text style={styles.emptyTitle}>No Matches Yet</Text>
+          <Text style={styles.emptyTitle}>No Matches Found</Text>
           <Text style={styles.emptyText}>
-            Start swiping to find your perfect match!
+            {searchQuery 
+              ? "No profiles match your search" 
+              : "Start swiping to find your perfect match!"}
           </Text>
-          <TouchableOpacity style={styles.findButton}>
-            <Text style={styles.findButtonText}>Find Matches</Text>
-          </TouchableOpacity>
+          {searchQuery && (
+            <TouchableOpacity 
+              style={styles.findButton}
+              onPress={() => setSearchQuery('')}
+            >
+              <Text style={styles.findButtonText}>Clear Search</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
     </View>
@@ -144,6 +242,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#6B7280',
   },
   header: {
     flexDirection: 'row',
@@ -159,7 +268,6 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#333',
-    fontFamily: 'Helvetica',
   },
   headerIcons: {
     flexDirection: 'row',
@@ -233,6 +341,17 @@ const styles = StyleSheet.create({
     height: 70,
     borderRadius: 35,
     marginRight: 16,
+    borderWidth: 2,
+    borderColor: '#FF5A5F',
+  },
+  avatarPlaceholder: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    marginRight: 16,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: 2,
     borderColor: '#FF5A5F',
   },
