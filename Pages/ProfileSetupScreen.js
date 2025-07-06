@@ -60,7 +60,7 @@ export default function ProfileSetupScreen({ navigation }) {
     const options = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect: [1, 2],
       quality: 0.7,
     };
 
