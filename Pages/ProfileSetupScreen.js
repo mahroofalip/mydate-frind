@@ -1,4 +1,3 @@
-// screens/ProfileSetupScreen.js
 import React, { useState, useRef } from 'react';
 import {
   View,
@@ -17,6 +16,7 @@ import {
 import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
 import { MaterialIcons, Feather, Ionicons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
@@ -89,34 +89,108 @@ export default function ProfileSetupScreen({ navigation }) {
     newImages.splice(index, 1);
     setExtraImages(newImages);
   };
+  
+const handleNext = async () => {
+  if (!validateForm()) return;
 
-  // Handle form submission
-  const handleNext = async () => {
+  setLoading(true);
+
+  try {
     const { data: { user }, error: userErr } = await supabase.auth.getUser();
-    if (userErr) return alert('Not signed in');
+    if (userErr || !user) {
+      Alert.alert('Error', 'User not authenticated');
+      return;
+    }
 
-    
-    
-  const payload = {
-    id: user.id,
-    full_name: name,
-    bio,
-    birthdate: age,
-    gender,
-    location,
-    occupation,
-    education,
-    interests: interests.split(',').map(i => i.trim()).join(','),
-    looking_for: lookingFor,
-    selfie_url,
-    extra_images: extraImages.join(',')
-  };
+    // 1. Upload selfie to Supabase Storage
+    let selfieUrl = null;
+    if (selfie) {
+      console.log(user.id,"user iddddddddddddddddddddddddddddddd");
+      
+      console.log(selfie,"selfieeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee");
+      
+      const fileExt = selfie.split('.').pop();
+      const fileName = `${user.id}/selfie.${fileExt}`;
+      const { data, error: uploadErr } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, {
+          uri: selfie,
+          type: 'image/jpeg',
+          name: fileName,
+        },{ upsert: true });
 
-  const { error } = await supabase.from('profiles').insert([payload]);
-  if (error) alert(error.message);
-  else navigation.replace('MainTabs');
+      if (uploadErr) {
+        console.log(uploadErr,"storage policy error");
+        
+        throw new Error(uploadErr);
+      }
+
+      const { data: urlData } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(fileName);
+      selfieUrl = urlData.publicUrl;
+    }
+
+    // 2. Prepare extra images (upload and store as comma-separated URLs)
+    const uploadedExtraUrls = [];
+    for (let i = 0; i < extraImages.length; i++) {
+      const uri = extraImages[i];
+      const fileExt = uri.split('.').pop();
+      const fileName = `${user.id}/extra_${i}.${fileExt}`;
+
+      const { error: extraErr } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, {
+          uri,
+          type: 'image/jpeg',
+          name: fileName,
+        });
+
+      if (!extraErr) {
+        const { data: urlData } = supabase.storage
+          .from('profile-photos')
+          .getPublicUrl(fileName);
+        uploadedExtraUrls.push(urlData.publicUrl);
+      }
+    }
+
+    // 3. Save to `profiles` table
+  
+
+      const payload = {
+        id: user.id,
+        full_name: name,
+        bio,
+        age,
+        gender,
+        location,
+        occupation,
+        education,
+        interests: interests.split(',').map(i => i.trim()).join(','),
+        looking_for: lookingFor,
+        // selfie_url,
+        extra_images: uploadedExtraUrls.join(','),
+      };
+
+      const { error } = await supabase.from('profiles').insert([payload]);
+      if (error) throw error;
+      navigation.replace('MainTabs');
+    } catch (err) {
+      Alert.alert('Error', err.message);
+    } finally {
+      setLoading(false);
+    }
 
 };
+
+
+
+
+
+
+
+
+//////////
   // Form sections
   const renderHeader = () => (
     <View style={styles.header}>
@@ -225,7 +299,7 @@ export default function ProfileSetupScreen({ navigation }) {
             maxLength={3}
           />
           {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
-        </View>
+                </View>
 
         <View style={[styles.inputContainer, { flex: 2 }]}>
           <Text style={styles.inputLabel}>Gender</Text>

@@ -45,9 +45,13 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleEdit = (field, value) => {
-    setEditField(field);
-    setEditValue(value);
-    setEditModalVisible(true);
+    // setEditField(field);
+    // setEditValue(value);
+    // setEditModalVisible(true);
+   navigation.reset({
+      index: 0,
+      routes: [{ name: 'ProfileSetupScreen' }],
+    });
   };
 
   const saveEdit = () => {
