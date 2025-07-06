@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   View, 
   Text, 
@@ -74,6 +74,46 @@ export default function ProfileScreen({ navigation }) {
     });
   }
 };
+
+useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const { data: { user }, error: userErr } = await supabase.auth.getUser();
+        if (userErr || !user) throw new Error('User not authenticated');
+
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+        if (error) throw error;
+        if (profile) {
+            console.log(profile,"profile");
+            
+          // setName(profile.full_name || '');
+          // setBio(profile.bio || '');
+          // setAge(profile.age || '');
+          // setGender(profile.gender || '');
+          // setLocation(profile.location || '');
+          // setOccupation(profile.occupation || '');
+          // setEducation(profile.education || '');
+          // setInterests(profile.interests || '');
+          // setLookingFor(profile.looking_for || '');
+          // setExtraImages(profile.extra_images ? profile.extra_images.split(',') : []);
+        }
+      } catch (err) {
+        Alert.alert('Error', err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+
+
+
 
 
   return (
