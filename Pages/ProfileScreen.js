@@ -84,6 +84,8 @@ export default function ProfileScreen({ navigation }) {
         if (error) throw error;
 
         if (profile) {
+          console.log(profile);
+          
           setName(profile.full_name || '');
           setBio(profile.bio || '');
           setAge(profile.age || '');

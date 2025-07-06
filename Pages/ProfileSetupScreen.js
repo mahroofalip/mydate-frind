@@ -35,7 +35,7 @@ export default function ProfileSetupScreen({ navigation }) {
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  
+  const [aspect, setAspect] = useState([10, 14]);
   const scrollViewRef = useRef();
 
   // Validate form fields
@@ -57,10 +57,11 @@ export default function ProfileSetupScreen({ navigation }) {
 
   // Handle image selection
   const handleImageSelection = async (isCamera) => {
+
     const options = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 2],
+      aspect,
       quality: 0.7,
     };
 
@@ -104,9 +105,10 @@ const handleNext = async () => {
 
     // --- 1. Upload selfie ---
     let selfieUploaded = false;
-    if (selfie) {
+    let selfieUrl = '';
+    if (selfie && selfie.startsWith('file')) {
       const fileExt = selfie.split('.').pop();
-      const fileName = `${user.id}/selfie.${fileExt}`;
+      const fileName = `${user.id}/selfie_${Date.now()}.${fileExt}`;
       const { error: uploadErr } = await supabase.storage
         .from('profile-photos')
         .upload(fileName, {
@@ -114,24 +116,46 @@ const handleNext = async () => {
           type: 'image/jpeg',
           name: fileName,
         }, { upsert: true });
-      if (!uploadErr) selfieUploaded = true;
+
+      if (!uploadErr) {
+        selfieUploaded = true;
+        const { data } = supabase.storage
+          .from('profile-photos')
+          .getPublicUrl(fileName);
+        selfieUrl = data.publicUrl;
+      }
     }
 
     // --- 2. Upload extra images ---
     let extraImageUploaded = false;
+    let uploadedExtraUrls = [...extraImages];
+
     for (let i = 0; i < extraImages.length; i++) {
       const uri = extraImages[i];
-      const fileExt = uri.split('.').pop();
-      const fileName = `${user.id}/extra_${i}.${fileExt}`;
-      const { error: extraErr } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, {
-          uri,
-          type: 'image/jpeg',
-          name: fileName,
-        }, { upsert: true });
-      if (!extraErr && !extraImageUploaded) {
-        extraImageUploaded = true;
+
+      if (uri.startsWith('file')) {
+        const fileExt = uri.split('.').pop();
+        const fileName = `${user.id}/extra_${Date.now()}_${i}.${fileExt}`;
+
+        const { error: extraErr } = await supabase.storage
+          .from('profile-photos')
+          .upload(fileName, {
+            uri,
+            type: 'image/jpeg',
+            name: fileName,
+          });
+
+        if (!extraErr) {
+          if (!extraImageUploaded) extraImageUploaded = true;
+
+          const { data: urlData } = supabase.storage
+            .from('profile-photos')
+            .getPublicUrl(fileName);
+
+          uploadedExtraUrls[i] = urlData.publicUrl;
+        }
+      } else {
+        extraImageUploaded = true; // already has at least one valid URL
       }
     }
 
@@ -141,7 +165,7 @@ const handleNext = async () => {
       return;
     }
 
-    // --- 4. Insert profile (without storing image URLs) ---
+    // --- 4. Insert profile with image URLs ---
     const payload = {
       id: user.id,
       full_name: name,
@@ -153,6 +177,8 @@ const handleNext = async () => {
       education,
       interests: interests.split(',').map(i => i.trim()).join(','),
       looking_for: lookingFor,
+      selfie_url: selfieUrl,
+      extra_images: uploadedExtraUrls.join(','),
     };
 
     const { error } = await supabase.from('profiles').insert([payload]);
@@ -166,8 +192,6 @@ const handleNext = async () => {
     setLoading(false);
   }
 };
-
-
 
   // Form sections
   const renderHeader = () => (

@@ -35,6 +35,7 @@ export default function ProfileUpdateScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [errors, setErrors] = useState({});
+    const [aspect, setAspect] = useState([10, 14]);
   
   const scrollViewRef = useRef();
 
@@ -95,7 +96,7 @@ export default function ProfileUpdateScreen({ navigation }) {
     const options = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: [1, 1],
+      aspect,
       quality: 0.7,
     };
 
