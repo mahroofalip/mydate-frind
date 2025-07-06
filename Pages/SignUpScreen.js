@@ -9,6 +9,7 @@ export default function SignUpScreen({ navigation }) {
   const [password, setPassword] = useState('');
   
 const handleSignUp = async () => {
+ 
   if (!name || !email || !password) return alert('Fill all fields');
   const { data, error } = await supabase.auth.signUp({ email, password });
   if (error) alert(error.message);

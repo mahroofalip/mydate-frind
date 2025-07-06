@@ -12,7 +12,6 @@ export default function WelcomeScreen({ navigation }) {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       console.log('Session:', session);
-
       if (session?.user?.email_confirmed_at) {
         navigation.reset({
           index: 0,
@@ -21,7 +20,6 @@ export default function WelcomeScreen({ navigation }) {
       }
       setLoading(false);
     };
-
     checkSession();
   }, []);
 
