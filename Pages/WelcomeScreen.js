@@ -1,39 +1,35 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Platform, Linking } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Platform, Linking, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
-
 export default function WelcomeScreen({ navigation }) {
+  const [loading, setLoading] = useState(true);
 
-
-    useEffect(() => {
+  // Handle session on mount
+  useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       console.log('Session:', session);
-      
+
       if (session?.user?.email_confirmed_at) {
         navigation.reset({
           index: 0,
           routes: [{ name: 'MainTabs' }],
         });
-      } else {
-        navigation.reset({
-          index: 0,
-          routes: [{ name: 'Welcome' }],
-        });
       }
+      setLoading(false);
     };
 
     checkSession();
   }, []);
 
-useEffect(() => {
-    const handleDeepLink = async () => {
-      const url = await Linking.getInitialURL();
-
-      if (url && url.includes('access_token')) {
+  // Handle deep links
+  useEffect(() => {
+    const handleDeepLink = async (event) => {
+      const url = event?.url || '';
+      if (url.includes('access_token')) {
         const params = getParamsFromURL(url);
 
         const { data, error } = await supabase.auth.setSession({
@@ -45,19 +41,31 @@ useEffect(() => {
           console.log('Set session error:', error.message);
         } else {
           console.log('Session set successfully!');
-          navigation.replace('Login'); // or 'Home'
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'MainTabs' }],
+          });
         }
       } else {
         console.log('No deep link found or no access_token in URL');
       }
     };
 
-    handleDeepLink();
+    // Initial deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleDeepLink({ url });
+      }
+    });
+
+    // Listener for deep links while app is running
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+    return () => subscription.remove();
   }, []);
 
   const getParamsFromURL = (url) => {
     const params = {};
-    const queryString = url.split('#')[1]; // split after '#'
+    const queryString = url.split('#')[1]; // get the part after '#'
     const pairs = queryString?.split('&') || [];
 
     for (const pair of pairs) {
@@ -68,8 +76,13 @@ useEffect(() => {
     return params;
   };
 
-
-
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#e8b3b3" />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -115,7 +128,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   overlay: {
-    backgroundColor: 'rgba(196, 78, 78, 0.2)', // Romantic red overlay
+    backgroundColor: 'rgba(196, 78, 78, 0.2)',
     ...StyleSheet.absoluteFillObject,
   },
   content: {
@@ -148,7 +161,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   buttonPrimary: {
-    backgroundColor: '#e8b3b3', // Soft blush pink
+    backgroundColor: '#e8b3b3',
     paddingVertical: 18,
     borderRadius: 30,
     marginBottom: 16,

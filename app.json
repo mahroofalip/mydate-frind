@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "Kizzora",
-    "slug": "Kizzora",
+    "name": "friendship-app",
+    "slug": "friendship-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/kizzora_icon",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/kizzora_icon",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
