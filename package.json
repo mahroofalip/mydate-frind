@@ -9,6 +9,10 @@
     "ios": "expo run:ios",
     "web": "expo start --web"
   },
+  "babel": {
+    "presets": ["babel-preset-expo"],
+    "plugins": ["react-native-reanimated/plugin"]
+  },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
     "@expo/vector-icons": "^14.1.0",
@@ -32,7 +36,14 @@
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
     "react-native-url-polyfill": "^2.0.0",
-    "react-native-web": "^0.20.0"
+    "react-native-web": "^0.20.0",
+    "expo-av": "~15.1.7",
+    "expo-document-picker": "~13.1.6",
+    "expo-media-library": "~17.1.7",
+    "react-native-reanimated": "~3.17.4",
+    "react-native-gesture-handler": "~2.24.0",
+    "expo-audio": "~0.4.8",
+    "expo-video": "~2.2.2"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

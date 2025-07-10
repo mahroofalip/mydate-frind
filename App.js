@@ -14,9 +14,12 @@ import ProfileScreen from './Pages/ProfileScreen';
 import LikesScreen from './Pages/LikesScreen';
 import SearchScreen from './Pages/SearchScreen'; // Import your new SearchScreen
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { ChatScreen } from './Pages/ChatScreen';
+// import { ChatScreen } from './Pages/ChatScreen';
+import ChatScreen from './Pages/ChatScreen';
+
 import EmailVerificationScreen from './Pages/EmailVerificationScreen';
 import ProfileUpdateScreen from './Pages/ProfileUpdateScreen';
+import 'react-native-gesture-handler';
 
 
 
@@ -112,7 +115,11 @@ export default function App() {
         <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen}/>
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
-        <Stack.Screen name="ChatScreen" component={ChatScreen} />
+       <Stack.Screen 
+          name="ChatScreen" 
+          component={ChatScreen}
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="MatchesScreen" component={MatchesScreen} />
         <Stack.Screen name="MessagesScreen" component={MessagesScreen} />

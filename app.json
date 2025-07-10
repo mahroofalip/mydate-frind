@@ -4,7 +4,7 @@
     "slug": "kizzora",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/kizzora_icon",
+    "icon": "./assets/icon",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -30,6 +30,10 @@
       "eas": {
         "projectId": "9174dde9-c535-40e9-b333-e0e4103ba5f9"
       }
-    }
+    },
+    "plugins": [
+      "expo-audio",
+      "expo-video"
+    ]
   }
 }
