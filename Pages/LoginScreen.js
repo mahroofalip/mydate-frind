@@ -49,7 +49,7 @@ export default function LoginScreen({ navigation }) {
 
     await AsyncStorage.setItem('@user', JSON.stringify(user));
 
-    const profileExists = await checkProfileExists(email);
+    const profileExists = await checkProfileExists(user.id);
 
     if (profileExists) {
       navigation.navigate('MainTabs');
@@ -64,15 +64,26 @@ export default function LoginScreen({ navigation }) {
   }
 };
 
-  const checkProfileExists = async (userEmail) => {
-    try {
-      const profileData = await AsyncStorage.getItem(`@profile_${userEmail}`);
-      return profileData !== null;
-    } catch (e) {
-      console.error('Failed to fetch profile', e);
+  const checkProfileExists = async (userId) => {
+  try {
+    const { data, error } = await supabase
+      .from('profiles') // 👈 Make sure your table is called 'profiles'
+      .select('id')     // 👈 Only select needed fields
+      .eq('id', userId) // 👈 user.id from Supabase auth is usually the primary key
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // ignore 'no rows' error
+      console.error('Error checking profile:', error);
       return false;
     }
-  };
+
+    return !!data;
+  } catch (err) {
+    console.error('Unexpected error checking profile:', err);
+    return false;
+  }
+};
+
 
   return (
     <KeyboardAvoidingView 
