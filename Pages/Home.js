@@ -13,31 +13,101 @@ import {
   ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AntDesign, MaterialIcons } from '@expo/vector-icons';
+import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
-const getOnlineStatusStyle = (lastOnline) => {
-  const lower = lastOnline.toLowerCase();
+// Helper functions for online status
+const checkOnlineStatus = (profile) => {
+  if (!profile.last_login_at) return false;
 
-  if (lower.includes('now') || lower.includes('just now') || lower.includes('online now')) {
+  const now = new Date();
+  const lastLogin = new Date(profile.last_login_at);
+  const lastLogout = profile.last_logout_at ? new Date(profile.last_logout_at) : null;
+  const expiresAt = profile.session_expires_at ? new Date(profile.session_expires_at) : null;
+
+  return (
+    (!lastLogout || lastLogin > lastLogout) &&
+    (!expiresAt || expiresAt > now)
+  );
+};
+
+const formatLastActive = (profile) => {
+  const lastActive = profile.last_logout_at || profile.last_login_at;
+  if (!lastActive) return 'Long time ago';
+
+  const diffMinutes = Math.floor((new Date() - new Date(lastActive)) / 60000);
+
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} hours ago`;
+  return `${Math.floor(diffMinutes / 1440)} days ago`;
+};
+
+const getOnlineStatusStyle = (profile) => {
+  if (checkOnlineStatus(profile)) {
     return { color: '#4CAF50', text: 'Online now' };
   }
 
-  const timeMatch = lower.match(/\d+/);
-  if (!timeMatch) return { color: '#F44336', text: lastOnline };
+  const lastActive = formatLastActive(profile).toLowerCase();
 
-  const timeValue = parseInt(timeMatch[0]);
-
-  if (lower.includes('min')) {
-    if (timeValue <= 10) {
-      return { color: '#FFEB3B', text: 'Recently online' };
-    }
-    return { color: '#FF9800', text: lastOnline };
+  if (lastActive.includes('just now') || lastActive.includes('min ago')) {
+    return { color: '#FFEB3B', text: 'Recently online' };
   }
 
-  return { color: '#F44336', text: lastOnline };
+  return { color: '#F44336', text: lastActive };
+};
+
+// Helper function to get or create a chat
+const getOrCreateChat = async (currentUserId, recipientId) => {
+  // Check if chat already exists
+  const { data: existingChat, error: existingError } = await supabase
+    .from('chats')
+    .select('*')
+    .or(`and(user1.eq.${currentUserId},user2.eq.${recipientId}),and(user1.eq.${recipientId},user2.eq.${currentUserId})`)
+    .single();
+
+  if (existingError && existingError.code !== 'PGRST116') {
+    console.error('Error checking chat:', existingError);
+    return null;
+  }
+
+  if (existingChat) return existingChat;
+
+  // Create new chat
+  const { data: newChat, error: createError } = await supabase
+    .from('chats')
+    .insert([{ user1: currentUserId, user2: recipientId }])
+    .select()
+    .single();
+
+  if (createError) {
+    console.error('Error creating chat:', createError);
+    return null;
+  }
+
+  return newChat;
+};
+
+// Helper function to send a message
+const sendSupabaseMessage = async (chatId, senderId, content) => {
+  const { error } = await supabase
+    .from('messages')
+    .insert([{
+      chat_id: chatId,
+      sender: senderId,
+      content,
+      type: 'text',
+      status: 'sent'
+    }]);
+
+  if (error) {
+    console.error('Error sending message:', error);
+    return false;
+  }
+
+  return true;
 };
 
 export default function HomeScreen({ navigation }) {
@@ -46,37 +116,51 @@ export default function HomeScreen({ navigation }) {
   const [modalVisible, setModalVisible] = useState(false);
   const [selected, setSelected] = useState(null);
   const [message, setMessage] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
+  const [sending, setSending] = useState(false);
+  const [likedProfiles, setLikedProfiles] = useState(new Set());
   const listRef = useRef(null);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      return user;
+    };
+
+    fetchUser();
+  }, []);
 
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
-        // Get current user ID
-        const { data: { user }, error: authError } = await supabase.auth.getUser();
-        if (authError || !user) {
-          throw new Error('User not authenticated');
-        }
-
-        // Fetch profiles excluding current user
+        if (!currentUser) return;
+        
+        // Fetch profiles excluding current user with online status columns
         const { data, error } = await supabase
           .from('profiles')
-          .select('*')
-          .neq('id', user.id); // Exclude current user
+          .select('*, last_login_at, last_logout_at, session_expires_at')
+          .neq('id', currentUser.id);
 
         if (error) throw error;
-        
+
         // Map Supabase data to our profile format
         const formattedProfiles = data.map(profile => ({
           id: profile.id,
           name: profile.full_name,
           age: profile.age,
-          image: profile.extra_images.split(',')[0].trim(), // Use selfie as main image
+          image: profile.extra_images.split(',')[0].trim(),
           place: profile.location,
-          distance: 'Nearby', // Placeholder - could calculate real distance later
-          lastOnline: 'Online now', // Placeholder
+          distance: 'Nearby',
           bio: profile.bio,
           interests: profile.interests ? profile.interests.split(',').slice(0, 3) : [],
-          match: `${Math.floor(Math.random() * 30) + 70}%` // Random match percentage
+          match: `${Math.floor(Math.random() * 30) + 70}%`,
+          lookingFor: profile.looking_for,
+          occupation: profile.occupation,
+          education: profile.education,
+          last_login_at: profile.last_login_at,
+          last_logout_at: profile.last_logout_at,
+          session_expires_at: profile.session_expires_at,
         }));
 
         setProfiles(formattedProfiles);
@@ -87,21 +171,169 @@ export default function HomeScreen({ navigation }) {
       }
     };
 
-    fetchProfiles();
-  }, []);
+    if (currentUser) fetchProfiles();
 
-  const sendMessage = () => {
-    if (!message.trim()) {
-      Alert.alert('Empty Message', 'Please enter a message.');
+    // Subscribe to real-time profile updates
+    const profileSubscription = supabase
+      .channel('public:profiles')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles'
+      }, (payload) => {
+        setProfiles(prev => prev.map(profile =>
+          profile.id === payload.new.id ? { ...profile, ...payload.new } : profile
+        ));
+      })
+      .subscribe();
+
+    return () => {
+      if (profileSubscription) {
+        profileSubscription.unsubscribe();
+      }
+    };
+
+  }, [currentUser]);
+
+  useEffect(() => {
+    const fetchLikes = async () => {
+      if (!currentUser) return;
+      
+      try {
+        const { data: likes, error } = await supabase
+          .from('likes')
+          .select('receiver')
+          .eq('sender', currentUser.id);
+          
+        if (error) throw error;
+        
+        // Create Set of liked profile IDs
+        const likedIds = new Set(likes.map(like => like.receiver));
+        setLikedProfiles(likedIds);
+      } catch (error) {
+        console.error('Failed to fetch likes:', error);
+      }
+    };
+    
+    fetchLikes();
+  }, [currentUser]);
+
+  const toggleLike = async (profile) => {
+    if (!currentUser) return;
+    
+    const isLiked = likedProfiles.has(profile.id);
+    const newLikedProfiles = new Set(likedProfiles);
+    
+    try {
+      if (isLiked) {
+        // Unlike: remove from database and state
+        const { error } = await supabase
+          .from('likes')
+          .delete()
+          .eq('sender', currentUser.id)
+          .eq('receiver', profile.id);
+          
+        if (error) throw error;
+        
+        newLikedProfiles.delete(profile.id);
+        // Alert.alert("Unliked", `You unliked ${profile.name}`);
+      } else {
+        // Like: add to database and state
+        const { error } = await supabase
+          .from('likes')
+          .insert([{ 
+            sender: currentUser.id, 
+            receiver: profile.id 
+          }]);
+
+        if (error) throw error;
+        
+        newLikedProfiles.add(profile.id);
+        // Alert.alert("Liked!", `You liked ${profile.name}`);
+
+        // Check for reciprocal like (match)
+        const { data: reciprocalLike, error: reciprocalError } = await supabase
+          .from('likes')
+          .select()
+          .eq('sender', profile.id)
+          .eq('receiver', currentUser.id)
+          .maybeSingle();
+
+        if (reciprocalError) throw reciprocalError;
+
+        if (reciprocalLike) {
+          // Create match if reciprocal like exists
+          const { error: matchError } = await supabase
+            .from('matches')
+            .insert([{
+              user1: currentUser.id,
+              user2: profile.id
+            }]);
+
+          if (matchError) throw matchError;
+
+          // Create chat automatically
+          await getOrCreateChat(currentUser.id, profile.id);
+          
+          Alert.alert(
+            "It's a match!",
+            `You and ${profile.name} liked each other`,
+            [
+              {
+                text: "Message now",
+                onPress: () => {
+                  setSelected(profile);
+                  setModalVisible(true);
+                }
+              },
+              { text: "Later" }
+            ]
+          );
+        }
+      }
+      
+      setLikedProfiles(newLikedProfiles);
+    } catch (error) {
+      Alert.alert("Error", error.message || `Failed to ${isLiked ? 'unlike' : 'like'}`);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!message.trim() || !currentUser || !selected) {
+      Alert.alert('Error', 'Please enter a message');
       return;
     }
-    Alert.alert('Message Sent', `To ${selected.name}: ${message}`);
-    setModalVisible(false);
+
+    setSending(true);
+    
+    try {
+      // 1. Get or create chat between users
+      const chat = await getOrCreateChat(currentUser.id, selected.id);
+      
+      if (!chat) {
+        throw new Error('Failed to create conversation');
+      }
+
+      // 2. Send message
+      const success = await sendSupabaseMessage(chat.id, currentUser.id, message);
+      
+      if (success) {
+        Alert.alert('Message Sent', `Your message has been sent to ${selected.name}`);
+        setModalVisible(false);
+        setMessage('');
+      } else {
+        throw new Error('Failed to send message');
+      }
+    } catch (error) {
+      Alert.alert('Error', error.message || 'Failed to send message');
+    } finally {
+      setSending(false);
+    }
   };
 
   const renderItem = ({ item }) => {
-    const onlineStatus = getOnlineStatusStyle(item.lastOnline);
-
+    const onlineStatus = getOnlineStatusStyle(item);
+    const isLiked = likedProfiles.has(item.id);
     return (
       <View style={styles.cardContainer}>
         <ImageBackground
@@ -115,8 +347,15 @@ export default function HomeScreen({ navigation }) {
             style={styles.gradient}
           />
           <View style={styles.headerIcons}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => alert('Liked!')}>
-              <AntDesign name="hearto" size={28} color="white" />
+            <TouchableOpacity 
+              style={styles.iconButton} 
+              onPress={() => toggleLike(item)}
+            >
+              <AntDesign 
+                name={isLiked ? "heart" : "hearto"} 
+                size={28} 
+                color={isLiked ? "#FF5A5F" : "white"} 
+              />
             </TouchableOpacity>
             <TouchableOpacity style={styles.iconButton} onPress={() => alert('Passed!')}>
               <AntDesign name="close" size={28} color="white" />
@@ -140,20 +379,30 @@ export default function HomeScreen({ navigation }) {
 
             <Text style={styles.bio}>{item.bio}</Text>
             <View style={styles.tagsRow}>
-              {item.interests.map(tag => (
-                <View key={tag} style={styles.tag}>
+              {/* {item.interests.map((tag, index) => (
+                <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
-              ))}
+              ))} */}
             </View>
-
-            <View style={styles.actions}>
+             <View style={styles.actions}>
               <TouchableOpacity
-                style={styles.messageButton}
+                style={[styles.actionButton, styles.viewProfileButton]}
                 onPress={() => navigation.navigate('ProfileDetail', { profile: item })}
               >
-                <MaterialIcons name="visibility" size={24} color="white" />
-                <Text style={styles.messageButtonText}>View Profile</Text>
+                <Ionicons name="person" size={20} color="white" />
+                <Text style={styles.actionButtonText}>View</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.actionButton, styles.messageButton]}
+                onPress={() => {
+                  setSelected(item);
+                  setModalVisible(true);
+                }}
+              >
+                <MaterialIcons name="send" size={20} color="white" />
+                <Text style={styles.actionButtonText}>Message</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -217,11 +466,23 @@ export default function HomeScreen({ navigation }) {
               autoFocus
             />
             <View style={styles.modalActions}>
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.cancelBtn}>
+              <TouchableOpacity 
+                onPress={() => setModalVisible(false)} 
+                style={styles.cancelBtn}
+                disabled={sending}
+              >
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={sendMessage} style={styles.sendBtn}>
-                <Text style={styles.buttonText}>Send</Text>
+              <TouchableOpacity 
+                onPress={handleSendMessage} 
+                style={styles.sendBtn}
+                disabled={sending}
+              >
+                {sending ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.buttonText}>Send</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -231,7 +492,6 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-// Add these new styles
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
@@ -262,22 +522,6 @@ const styles = StyleSheet.create({
     color: '#aaa',
     marginTop: 10,
     textAlign: 'center'
-  },
-  // ... keep all your existing styles below ...
-  messageButton: {
-    flexDirection: 'row',
-    backgroundColor: '#FF5A5F',
-    padding: 15,
-    borderRadius: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 20,
-  },
-  messageButtonText: {
-    color: '#fff',
-    fontWeight: '700',
-    fontSize: 18,
-    marginLeft: 10,
   },
   container: {
     flex: 1,
@@ -389,11 +633,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  //
   actions: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 5,
+    justifyContent: 'space-between',
+    marginTop: 10,
+    gap: 15,
   },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    padding: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 10,
+  },
+  messageButton: {
+    backgroundColor: '#FF5A5F',
+  },
+  viewProfileButton: {
+    backgroundColor: '#444',
+    borderWidth: 1,
+    borderColor: '#666',
+  },
+  actionButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+    marginLeft: 8,
+  },
+
+  //
   modalOverlay: {
     flex: 1,
     backgroundColor: '#000000aa',
@@ -446,5 +717,10 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     flex: 1,
     alignItems: 'center'
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

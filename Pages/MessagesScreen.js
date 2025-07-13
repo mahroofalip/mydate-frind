@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   View, 
   Text, 
@@ -7,110 +7,275 @@ import {
   TouchableOpacity, 
   Image, 
   TextInput,
-  Dimensions,
-  Animated
+  ActivityIndicator
 } from 'react-native';
-import { MaterialIcons, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-
-const { width, height } = Dimensions.get('window');
-
-// Sample conversation data
-const conversations = [
-  {
-    id: '1',
-    name: 'Sophia',
-    lastMessage: 'Looking forward to our museum date! 😊',
-    time: '2 mins ago',
-    unread: 3,
-    online: true,
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=688&q=80',
-    premium: true
-  },
-  {
-    id: '2',
-    name: 'Luna',
-    lastMessage: 'The stars were beautiful last night 🌟',
-    time: '1 hour ago',
-    unread: 0,
-    online: true,
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    premium: false
-  },
-  {
-    id: '3',
-    name: 'Isabella',
-    lastMessage: 'I found the perfect picnic spot!',
-    time: '3 hours ago',
-    unread: 1,
-    online: false,
-    image: 'https://images.unsplash.com/photo-1545912452-8aea7e25a3d3?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    premium: true
-  },
-  {
-    id: '4',
-    name: 'Amélie',
-    lastMessage: 'Would you like to attend the ballet?',
-    time: 'Yesterday',
-    unread: 0,
-    online: false,
-    image: 'https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    premium: false
-  },
-  {
-    id: '5',
-    name: 'Seraphina',
-    lastMessage: 'I composed a new piece for you 🎻',
-    time: '2 days ago',
-    unread: 0,
-    online: true,
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80',
-    premium: true
-  },
-  {
-    id: '6',
-    name: 'Aurora',
-    lastMessage: 'The sunrise this morning was magical!',
-    time: '3 days ago',
-    unread: 0,
-    online: false,
-    image: 'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    premium: false
-  },
-];
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
+import moment from 'moment';
 
 export default function MessagesScreen({ navigation }) {
+  const [conversations, setConversations] = useState([]);
+  const [filteredConversations, setFilteredConversations] = useState([]);
   const [searchText, setSearchText] = useState('');
-  const [filteredConversations, setFilteredConversations] = useState(conversations);
   const [activeTab, setActiveTab] = useState('all');
-  const [fadeAnim] = useState(new Animated.Value(0));
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
   const [premiumVisible, setPremiumVisible] = useState(true);
-  
-  useEffect(() => {
-    // Filter conversations based on search text
-    const filtered = conversations.filter(conv => 
-      conv.name.toLowerCase().includes(searchText.toLowerCase()) ||
-      conv.lastMessage.toLowerCase().includes(searchText.toLowerCase())
-    );
-    setFilteredConversations(filtered);
-  }, [searchText]);
 
   useEffect(() => {
-    // Fade in animation
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      return user;
+    };
+
+    fetchUser();
   }, []);
+
+  // Add this to useEffect that handles subscriptions
+useEffect(() => {
+  if (!currentUser) return;
+
+  // ... existing subscriptions ...
+
+  // New subscription for message read status updates
+  const readStatusSubscription = supabase
+    .channel('public:message_read_status')
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'messages',
+      filter: `status=eq.read`
+    }, payload => {
+      // Update conversation unread count
+      setConversations(prev => 
+        prev.map(conv => {
+          if (conv.chatId === payload.new.chat_id) {
+            return {
+              ...conv,
+              unread: Math.max(0, conv.unread - 1)
+            };
+          }
+          return conv;
+        })
+      );
+    })
+    .subscribe();
+
+  return () => {
+    // ... existing unsubscribes ...
+    readStatusSubscription.unsubscribe();
+  };
+}, [currentUser]);
+
+
+
+
+
+  useEffect(() => {
+  if (!currentUser) return;
+
+  // Check online status helper
+  const checkOnlineStatus = (user) => {
+    if (!user?.last_login_at) return false;
+    const now = new Date();
+    const lastLogin = new Date(user.last_login_at);
+    const lastLogout = user.last_logout_at ? new Date(user.last_logout_at) : null;
+    const expiresAt = user.session_expires_at ? new Date(user.session_expires_at) : null;
+    
+    return (
+      (!lastLogout || lastLogin > lastLogout) &&
+      (!expiresAt || expiresAt > now)
+    );
+  };
+
+  // Format time helper
+  const formatTime = (dateString) => {
+    const now = moment();
+    const msgTime = moment(dateString);
+    const diffDays = now.diff(msgTime, 'days');
+    
+    if (diffDays === 0) return msgTime.format('h:mm A');
+    if (diffDays < 7) return msgTime.format('ddd');
+    return msgTime.format('MMM D');
+  };
+
+  // Fetch conversations
+  const fetchConversations = async () => {
+    setLoading(true);
+    
+    try {
+      const { data, error } = await supabase
+        .from('chats')
+        .select(`
+          id,
+          created_at,
+          user1:profiles!user1(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
+          user2:profiles!user2(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
+          messages: messages!chat_id(id, content, created_at, sender, status)
+        `)
+        .or(`user1.eq.${currentUser.id},user2.eq.${currentUser.id}`)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Process conversations
+      const formatted = await Promise.all(data.map(async (conversation) => {
+        const otherUser = conversation.user1.id === currentUser.id 
+          ? conversation.user2 
+          : conversation.user1;
+        
+        // Get unread count from database for accuracy
+        const { count: unreadCount } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact' })
+          .eq('chat_id', conversation.id)
+          .eq('status', 'sent')
+          .neq('sender', currentUser.id);
+
+        // Find last message
+        const lastMessage = conversation.messages?.length > 0
+          ? conversation.messages.reduce((latest, msg) => 
+              new Date(msg.created_at) > new Date(latest.created_at) ? msg : latest
+            )
+          : null;
+
+        return {
+          id: conversation.id,
+          chatId: conversation.id,
+          name: otherUser.full_name,
+          lastMessage: lastMessage?.content || 'Start a conversation',
+          time: lastMessage?.created_at ? formatTime(lastMessage.created_at) : 'Just now',
+          unread: unreadCount || 0,
+          image: otherUser.selfie_url,
+          userId: otherUser.id,
+          online: checkOnlineStatus(otherUser),
+          premium: false
+        };
+      }));
+
+      setConversations(formatted);
+      setFilteredConversations(formatted);
+    } catch (error) {
+      console.error('Fetch conversations error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchConversations();
+
+  // Real-time subscriptions
+  const messagesChannel = supabase
+    .channel('public:messages')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'messages',
+      filter: `sender=neq.${currentUser.id}`
+    }, async (payload) => {
+      // For new messages or updates
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const newMessage = payload.new;
+        
+        // Update the conversation
+        setConversations(prev => prev.map(conv => {
+          if (conv.chatId === newMessage.chat_id) {
+            // Update last message
+            const newTime = formatTime(newMessage.created_at);
+            const isNewer = moment(newMessage.created_at).isAfter(
+              moment(conv.lastUpdated || 0)
+            );
+            
+            return {
+              ...conv,
+              lastMessage: newMessage.content,
+              time: isNewer ? newTime : conv.time,
+              unread: newMessage.status === 'sent' 
+                ? conv.unread + 1 
+                : conv.unread,
+              lastUpdated: new Date()
+            };
+          }
+          return conv;
+        }));
+      }
+    })
+    .subscribe();
+
+  return () => {
+    messagesChannel.unsubscribe();
+  };
+}, [currentUser]);
+
+  
+
+  // In MessagesScreen.js
+
+
+  // Filter conversations based on active tab
+  useEffect(() => {
+    let filtered = conversations;
+    
+    // Apply search filter
+    if (searchText) {
+      filtered = filtered.filter(conv => 
+        conv.name.toLowerCase().includes(searchText.toLowerCase()) ||
+        conv.lastMessage.toLowerCase().includes(searchText.toLowerCase())
+      );
+    }
+    
+    // Apply tab filter
+    if (activeTab === 'unread') {
+      filtered = filtered.filter(conv => conv.unread > 0);
+    } else if (activeTab === 'online') {
+      filtered = filtered.filter(conv => conv.online);
+    }
+    
+    setFilteredConversations(filtered);
+  }, [searchText, activeTab, conversations]);
+
+  const handleConversationPress = async (conversation) => {
+  // Mark all messages as read before navigating
+  const { data: unreadMessages } = await supabase
+    .from('messages')
+    .select('id')
+    .eq('chat_id', conversation.chatId)
+    .eq('status', 'sent')
+    .neq('sender', currentUser.id);
+
+  if (unreadMessages && unreadMessages.length > 0) {
+    const messageIds = unreadMessages.map(m => m.id);
+    
+    await supabase
+      .from('messages')
+      .update({ status: 'read' })
+      .in('id', messageIds);
+  }
+
+  navigation.navigate('ChatScreen', { 
+    conversation: {
+      id: conversation.chatId,
+      name: conversation.name,
+      image: conversation.image,
+      userId: conversation.userId
+    }
+  });
+};
+
 
   const renderConversationItem = ({ item }) => (
     <TouchableOpacity 
       style={styles.conversationItem}
-      onPress={() => navigation.navigate('ChatScreen', { conversation: item })}
+      onPress={() => handleConversationPress(item)}
     >
       <View style={styles.conversationLeft}>
         <View style={styles.avatarContainer}>
-          <Image source={{ uri: item.image }} style={styles.avatar} />
+          <Image 
+            source={{ uri: item.image || 'https://via.placeholder.com/150' }} 
+            style={styles.avatar} 
+            onError={() => console.log("Image failed to load")}
+          />
           {item.online && <View style={styles.onlineIndicator} />}
           {item.premium && (
             <MaterialCommunityIcons 
@@ -156,15 +321,21 @@ export default function MessagesScreen({ navigation }) {
     </TouchableOpacity>
   );
 
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF5A5F" />
+        <Text style={styles.loadingText}>Loading conversations...</Text>
+      </View>
+    );
+  }
+
   return (
-    <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
+    <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Messages</Text>
         <View style={styles.headerIcons}>
-          <TouchableOpacity style={styles.iconButton}>
-            <MaterialIcons name="search" size={28} color="#FF5A5F" />
-          </TouchableOpacity>
           <TouchableOpacity 
             style={styles.iconButton}
             onPress={() => navigation.navigate('NewMessage')}
@@ -240,47 +411,13 @@ export default function MessagesScreen({ navigation }) {
           </Text>
           <TouchableOpacity 
             style={styles.findButton}
-            onPress={() => navigation.navigate('Discover')}
+            onPress={() => navigation.navigate('NewMessage')}
           >
-            <Text style={styles.findButtonText}>Find Matches</Text>
+            <Text style={styles.findButtonText}>Start a Conversation</Text>
           </TouchableOpacity>
         </View>
       )}
-      
-      {/* Premium Banner */}
-      {/* {premiumVisible && (
-        <View style={styles.premiumBanner}>
-          <View style={styles.premiumContent}>
-            <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
-            <Text style={styles.premiumText}>See read receipts and typing indicators with Premium</Text>
-            <TouchableOpacity 
-              style={styles.upgradeButton}
-              onPress={() => {
-                // In a real app, this would navigate to premium screen
-                setPremiumVisible(false);
-                alert('Redirecting to Premium Upgrade');
-              }}
-            >
-              <Text style={styles.upgradeText}>Upgrade</Text>
-            </TouchableOpacity>
-          </View>
-          <TouchableOpacity 
-            style={styles.closeButton}
-            onPress={() => setPremiumVisible(false)}
-          >
-            <MaterialIcons name="close" size={18} color="#888" />
-          </TouchableOpacity>
-        </View>
-      )} */}
-      
-      {/* Floating Action Button */}
-      {/* <TouchableOpacity 
-        style={styles.fab}
-        onPress={() => navigation.navigate('NewMessage')}
-      >
-        <MaterialIcons name="edit" size={24} color="white" />
-      </TouchableOpacity> */}
-    </Animated.View>
+    </View>
   );
 }
 
@@ -503,65 +640,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 16,
   },
-  fab: {
-    position: 'absolute',
-    bottom: 30,
-    right: 30,
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#FF5A5F',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    zIndex: 10,
+    backgroundColor: '#f8f9fa',
   },
-  premiumBanner: {
-    position: 'absolute',
-    bottom: 4,
-    left: 20,
-    right: 20,
-    backgroundColor: '#333',
-    borderRadius: 15,
-    padding: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-  },
-  premiumContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  premiumText: {
-    flex: 1,
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 10,
-    marginRight: 10,
-  },
-  upgradeButton: {
-    backgroundColor: '#FFD700',
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-  },
-  upgradeText: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
-  closeButton: {
-    padding: 5,
+  loadingText: {
+    marginTop: 15,
+    color: '#FF5A5F',
+    fontSize: 16,
   },
 });

@@ -6,12 +6,10 @@ import {
   FlatList, 
   TouchableOpacity, 
   Image, 
-  Dimensions,
   Animated
 } from 'react-native';
-import { MaterialIcons, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialIcons,  MaterialCommunityIcons } from '@expo/vector-icons';
 
-const { width } = Dimensions.get('window');
 
 // Sample like data
 const likesData = [
@@ -24,56 +22,6 @@ const likesData = [
     time: '2 mins ago',
     image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=688&q=80',
     mutual: true
-  },
-  {
-    id: '2',
-    name: 'Luna',
-    age: 26,
-    location: 'Santorini, Greece',
-    matchPercentage: 97,
-    time: '1 hour ago',
-    image: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    mutual: false
-  },
-  {
-    id: '3',
-    name: 'Isabella',
-    age: 25,
-    location: 'Provence, France',
-    matchPercentage: 93,
-    time: '3 hours ago',
-    image: 'https://images.unsplash.com/photo-1545912452-8aea7e25a3d3?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    mutual: true
-  },
-  {
-    id: '4',
-    name: 'Amélie',
-    age: 27,
-    location: 'Vienna, Austria',
-    matchPercentage: 96,
-    time: 'Yesterday',
-    image: 'https://images.unsplash.com/photo-1549476464-37392f717541?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    mutual: false
-  },
-  {
-    id: '5',
-    name: 'Seraphina',
-    age: 23,
-    location: 'Venice, Italy',
-    matchPercentage: 99,
-    time: '2 days ago',
-    image: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=688&q=80',
-    mutual: true
-  },
-  {
-    id: '6',
-    name: 'Aurora',
-    age: 25,
-    location: 'Bali, Indonesia',
-    matchPercentage: 94,
-    time: '3 days ago',
-    image: 'https://images.unsplash.com/photo-1516726817505-f5ed825624d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=687&q=80',
-    mutual: false
   },
 ];
 

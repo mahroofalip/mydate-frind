@@ -26,7 +26,7 @@ export default function ProfileDetailScreen({ route, navigation }) {
   
   // Combine all profile images
   const allImages = [profile.image, ...(profile.extraImages || [])];
-  
+  // console.log(profile,"profileprofileprofile");
   const sendMessage = () => {
     if (!message.trim()) {
       Alert.alert('Empty Message', 'Please enter a message.');

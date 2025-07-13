@@ -10,8 +10,12 @@
     "web": "expo start --web"
   },
   "babel": {
-    "presets": ["babel-preset-expo"],
-    "plugins": ["react-native-reanimated/plugin"]
+    "presets": [
+      "babel-preset-expo"
+    ],
+    "plugins": [
+      "react-native-reanimated/plugin"
+    ]
   },
   "dependencies": {
     "@expo/metro-runtime": "~5.0.4",
@@ -24,26 +28,27 @@
     "@react-navigation/native-stack": "^7.3.13",
     "@supabase/supabase-js": "^2.50.2",
     "expo": "~53.0.9",
+    "expo-audio": "~0.4.8",
+    "expo-av": "~15.1.7",
     "expo-dev-client": "~5.2.2",
+    "expo-document-picker": "~13.1.6",
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "^14.1.4",
+    "expo-media-library": "~17.1.7",
     "expo-status-bar": "~2.2.3",
+    "expo-video": "~2.2.2",
+    "moment": "^2.30.1",
     "prop-types": "^15.8.1",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.2",
+    "react-native-gesture-handler": "~2.24.0",
     "react-native-picker-select": "^9.3.1",
+    "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.10.0",
     "react-native-url-polyfill": "^2.0.0",
-    "react-native-web": "^0.20.0",
-    "expo-av": "~15.1.7",
-    "expo-document-picker": "~13.1.6",
-    "expo-media-library": "~17.1.7",
-    "react-native-reanimated": "~3.17.4",
-    "react-native-gesture-handler": "~2.24.0",
-    "expo-audio": "~0.4.8",
-    "expo-video": "~2.2.2"
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.20.0"

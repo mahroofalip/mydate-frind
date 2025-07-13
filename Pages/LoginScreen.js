@@ -20,49 +20,67 @@ export default function LoginScreen({ navigation }) {
   const [error, setError] = useState('');
 
   const handleLogin = async () => {
-  if (!email || !password) {
-    setError('Please enter both email and password');
-    return;
-  }
-
-  setLoading(true);
-  setError('');
-
-  try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setError(`Login error: ${error.message}`);
+    if (!email || !password) {
+      setError('Please enter both email and password');
       return;
     }
 
-    const user = data.user;
+    setLoading(true);
+    setError('');
 
-    // ✅ Check if email is confirmed
-    if (!user?.email_confirmed_at) {
-      setError('Please verify your email before logging in.');
-      return;
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        setError(`Login error: ${authError.message}`);
+        return;
+      }
+
+      const user = data.user;
+
+      // Check if email is confirmed
+      if (!user?.email_confirmed_at) {
+        setError('Please verify your email before logging in.');
+        return;
+      }
+
+      // Set session expiration time
+      const expiresAt = new Date(data.session.expires_at * 1000).toISOString();
+      
+      // Update user's online status
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ 
+          last_login_at: new Date().toISOString(),
+          session_expires_at: expiresAt,
+          last_logout_at: null  // Clear logout time on login
+        })
+        .eq('id', user.id);
+
+      if (updateError) {
+        console.error('Error updating online status:', updateError);
+      }
+
+      await AsyncStorage.setItem('@user', JSON.stringify(user));
+
+      const profileExists = await checkProfileExists(user.id);
+
+      if (profileExists) {
+        navigation.navigate('MainTabs');
+      } else {
+        navigation.navigate('ProfileSetupScreen');
+      }
+    } catch (err) {
+      setError('Login failed. Please try again.');
+      console.error(err);
+    } finally {
+      setLoading(false);
     }
+  };
 
-    await AsyncStorage.setItem('@user', JSON.stringify(user));
-
-    const profileExists = await checkProfileExists(user.id);
-
-    if (profileExists) {
-      navigation.navigate('MainTabs');
-    } else {
-      navigation.navigate('ProfileSetupScreen');
-    }
-  } catch (err) {
-    setError('Login failed. Please try again.');
-    console.error(err);
-  } finally {
-    setLoading(false);
-  }
-};
 
   const checkProfileExists = async (userId) => {
   try {

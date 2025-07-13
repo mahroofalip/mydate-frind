@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ProfileScreen({ navigation }) {
   const [name, setName] = useState('');
@@ -57,15 +58,40 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleLogout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('Logout failed:', error.message);
-      Alert.alert('Error', 'Failed to log out. Please try again.');
-    } else {
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Welcome' }],
-      });
+    try {
+      // Get current user before signing out
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (user) {
+        // Update logout time in profiles table
+        await supabase
+          .from('profiles')
+          .update({
+            last_logout_at: new Date().toISOString(),
+            session_expires_at: null  // Clear session expiration
+          })
+          .eq('id', user.id);
+      }
+
+      // Now sign out from auth
+      const { error } = await supabase.auth.signOut();
+
+      if (error) {
+        console.error('Logout failed:', error.message);
+        Alert.alert('Error', 'Failed to log out. Please try again.');
+      } else {
+        // Clear any stored user data
+        await AsyncStorage.removeItem('@user');
+
+        // Navigate to welcome screen
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Welcome' }],
+        });
+      }
+    } catch (err) {
+      console.error('Logout error:', err);
+      Alert.alert('Error', 'An unexpected error occurred during logout');
     }
   };
 
@@ -84,7 +110,7 @@ export default function ProfileScreen({ navigation }) {
         if (error) throw error;
 
         if (profile) {
-          
+
           setName(profile.full_name || '');
           setBio(profile.bio || '');
           setAge(profile.age || '');
@@ -257,6 +283,7 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.settingText}>Safety Tips</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
+          
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

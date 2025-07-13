@@ -16,10 +16,12 @@ import SearchScreen from './Pages/SearchScreen'; // Import your new SearchScreen
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 // import { ChatScreen } from './Pages/ChatScreen';
 import ChatScreen from './Pages/ChatScreen';
-
+import NewMessageScreen from './Pages/NewMessageScreen';
 import EmailVerificationScreen from './Pages/EmailVerificationScreen';
 import ProfileUpdateScreen from './Pages/ProfileUpdateScreen';
 import 'react-native-gesture-handler';
+import { useEffect } from 'react';
+import { supabase } from './lib/supabase';
 
 
 
@@ -45,13 +47,13 @@ function MainTabs() {
             iconName = focused ? 'explore' : 'explore';
             return <MaterialIcons name={iconName} size={size} color={color} />;
           } else if (route.name === 'Matches') {
-            iconName = focused ? 'heart' : 'heart-outline';
+            iconName = focused ?  'star' : 'star-outline';
             return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
           } else if (route.name === 'Messages') {
             iconName = focused ? 'message' : 'message';
             return <MaterialIcons name={iconName} size={size} color={color} />;
           } else if (route.name === 'Likes') {
-            iconName = focused ? 'star' : 'star-outline';
+            iconName = focused ? 'heart' : 'heart-outline';
             return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
           } else if (route.name === 'Profile') {
             iconName = focused ? 'person' : 'person-outline';
@@ -100,6 +102,26 @@ function MainTabs() {
 const Stack = createNativeStackNavigator();
 export default function App() {
 
+useEffect(() => {
+    const authListener = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED' && session?.user) {
+        // Update session expiration when token refreshes
+        supabase
+          .from('profiles')
+          .update({ 
+            session_expires_at: new Date(session.expires_at * 1000).toISOString()
+          })
+          .eq('id', session.user.id);
+      }
+    });
+
+    return () => {
+    if (authListener?.subscription) {
+      authListener.subscription.unsubscribe();
+    }
+  };
+
+  }, []);
 
   
 
@@ -115,17 +137,14 @@ export default function App() {
         <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen}/>
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
-       <Stack.Screen 
-          name="ChatScreen" 
-          component={ChatScreen}
-          options={{ headerShown: false }}
-        />
+       <Stack.Screen name="ChatScreen" component={ChatScreen}/>
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="MatchesScreen" component={MatchesScreen} />
         <Stack.Screen name="MessagesScreen" component={MessagesScreen} />
         <Stack.Screen name="LikesScreen" component={LikesScreen} />
         <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
-      
+        <Stack.Screen name="NewMessage" component={NewMessageScreen} />
+
       </Stack.Navigator>
     </NavigationContainer>
   );
