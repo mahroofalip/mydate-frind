@@ -15,78 +15,123 @@ import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');
 
-export default function MatchesScreen() {
+export default function MatchesScreen({ navigation }) {
   const [activeTab, setActiveTab] = useState('all');
   const [searchActive, setSearchActive] = useState(false);
-  const [profiles, setProfiles] = useState([]);
-  const [filteredProfiles, setFilteredProfiles] = useState([]);
+  const [matches, setMatches] = useState([]);
+  const [filteredMatches, setFilteredMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentUser, setCurrentUser] = useState(null);
   
-  // Fetch profiles from Supabase
+  // Get current user
   useEffect(() => {
-    const fetchProfiles = async () => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+    };
+    fetchUser();
+  }, []);
+
+  // Fetch mutual matches from Supabase
+  useEffect(() => {
+    const fetchMutualMatches = async () => {
+      if (!currentUser) return;
+      
       try {
         setLoading(true);
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (error) throw error;
-
-        // Add mock match percentage (since we don't have this in the database)
-        const profilesWithMatch = data.map(profile => ({
-          ...profile,
-          matchPercentage: Math.floor(Math.random() * 41) + 60, // Random between 60-100%
-          lastMessage: "Say hello to start a conversation!", // Default message
-          time: "Just now" // Default time
-        }));
-
-        setProfiles(profilesWithMatch);
-        setFilteredProfiles(profilesWithMatch);
+        
+        // Step 1: Get all users who liked the current user
+        const { data: receivedLikes, error: receivedError } = await supabase
+          .from('likes')
+          .select('sender')
+          .eq('receiver', currentUser.id);
+        
+        if (receivedError) throw receivedError;
+        
+        // Step 2: Get all users the current user has liked
+        const { data: sentLikes, error: sentError } = await supabase
+          .from('likes')
+          .select('receiver')
+          .eq('sender', currentUser.id);
+        
+        if (sentError) throw sentError;
+        
+        // Step 3: Find mutual likes (users who both like each other)
+        const receivedSenders = receivedLikes.map(like => like.sender);
+        const sentReceivers = sentLikes.map(like => like.receiver);
+        
+        const mutualIds = receivedSenders.filter(id => 
+          sentReceivers.includes(id)
+        );
+        
+        // Step 4: Fetch profiles of mutual matches
+        if (mutualIds.length > 0) {
+          const { data: mutualProfiles, error: profilesError } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', mutualIds);
+          
+          if (profilesError) throw profilesError;
+          
+          // Add match data
+          const matchesWithData = mutualProfiles.map(profile => ({
+            ...profile,
+            matchPercentage: Math.floor(Math.random() * 41) + 60, // 60-100%
+            lastMessage: "Say hello to start a conversation!",
+            time: "Just now"
+          }));
+          
+          setMatches(matchesWithData);
+          setFilteredMatches(matchesWithData);
+        } else {
+          setMatches([]);
+          setFilteredMatches([]);
+        }
       } catch (error) {
-        console.error('Error fetching profiles:', error);
-        Alert.alert('Error', 'Failed to load profiles');
+        console.error('Error fetching mutual matches:', error);
+        Alert.alert('Error', 'Failed to load matches');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProfiles();
-  }, []);
+    fetchMutualMatches();
+  }, [currentUser]);
 
-  // Filter profiles based on search query
+  // Filter matches based on search query
   useEffect(() => {
     if (searchQuery) {
-      const filtered = profiles.filter(profile => 
-        profile.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        profile.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        profile.interests?.toLowerCase().includes(searchQuery.toLowerCase())
+      const filtered = matches.filter(match => 
+        match.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        match.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        match.interests?.toLowerCase().includes(searchQuery.toLowerCase())
       );
-      setFilteredProfiles(filtered);
+      setFilteredMatches(filtered);
     } else {
-      setFilteredProfiles(profiles);
+      setFilteredMatches(matches);
     }
-  }, [searchQuery, profiles]);
+  }, [searchQuery, matches]);
 
   // Filter by active tab
-  const getFilteredProfiles = () => {
+  const getFilteredMatches = () => {
     if (activeTab === 'unread') {
-      return filteredProfiles.filter(profile => profile.unread);
+      return filteredMatches.filter(match => match.unread);
     } else if (activeTab === 'recent') {
-      // Get profiles created in the last 7 days
       const oneWeekAgo = new Date();
       oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      return filteredProfiles.filter(profile => 
-        new Date(profile.created_at) > oneWeekAgo
+      return filteredMatches.filter(match => 
+        new Date(match.created_at) > oneWeekAgo
       );
     }
-    return filteredProfiles;
+    return filteredMatches;
   };
 
-  const renderProfileItem = ({ item }) => (
-    <TouchableOpacity style={styles.matchCard}>
+  const renderMatchItem = ({ item }) => (
+    <TouchableOpacity 
+      style={styles.matchCard}
+      onPress={() => navigation.navigate('Chat', { matchId: item.id })}
+    >
       <View style={styles.matchCardContent}>
         {item.selfie_url ? (
           <Image source={{ uri: item.selfie_url }} style={styles.matchImage} />
@@ -130,7 +175,7 @@ export default function MatchesScreen() {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#FF5A5F" />
-        <Text style={styles.loadingText}>Loading profiles...</Text>
+        <Text style={styles.loadingText}>Loading matches...</Text>
       </View>
     );
   }
@@ -201,11 +246,11 @@ export default function MatchesScreen() {
         </TouchableOpacity>
       </View>
       
-      {/* Profiles List */}
-      {getFilteredProfiles().length > 0 ? (
+      {/* Matches List */}
+      {getFilteredMatches().length > 0 ? (
         <FlatList
-          data={getFilteredProfiles()}
-          renderItem={renderProfileItem}
+          data={getFilteredMatches()}
+          renderItem={renderMatchItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
@@ -218,18 +263,25 @@ export default function MatchesScreen() {
             color="#FF5A5F" 
             style={styles.emptyIcon}
           />
-          <Text style={styles.emptyTitle}>No Matches Found</Text>
+          <Text style={styles.emptyTitle}>No Matches Yet</Text>
           <Text style={styles.emptyText}>
             {searchQuery 
-              ? "No profiles match your search" 
-              : "Start swiping to find your perfect match!"}
+              ? "No matches match your search" 
+              : "When you and someone like each other, it's a match!"}
           </Text>
-          {searchQuery && (
+          {searchQuery ? (
             <TouchableOpacity 
               style={styles.findButton}
               onPress={() => setSearchQuery('')}
             >
               <Text style={styles.findButtonText}>Clear Search</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={styles.findButton}
+              onPress={() => navigation.navigate('Home')}
+            >
+              <Text style={styles.findButtonText}>Start Swiping</Text>
             </TouchableOpacity>
           )}
         </View>

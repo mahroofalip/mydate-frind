@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, 
   Text, 
@@ -6,29 +6,178 @@ import {
   FlatList, 
   TouchableOpacity, 
   Image, 
-  Animated
+  Animated,
+  ActivityIndicator,
+  Alert
 } from 'react-native';
-import { MaterialIcons,  MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
-
-// Sample like data
-const likesData = [
-  {
-    id: '1',
-    name: 'Sophia',
-    age: 24,
-    location: 'Paris, France',
-    matchPercentage: 95,
-    time: '2 mins ago',
-    image: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=688&q=80',
-    mutual: true
-  },
-];
-
-export default function LikesScreen() {
+const LikesScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = useState('all');
   const [fadeAnim] = useState(new Animated.Value(0));
-  
+  const [likesData, setLikesData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState(null);
+
+  // Fade in animation
+  useEffect(() => {
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) {
+        Alert.alert('Error', 'Failed to fetch user');
+        setLoading(false);
+        return;
+      }
+      setCurrentUser(user);
+    };
+
+    fetchUser();
+  }, []);
+
+  useEffect(() => {
+    const fetchLikes = async () => {
+      if (!currentUser) return;
+      
+      try {
+        // Fetch likes where current user is the receiver
+        const { data: receivedLikes, error: receivedError } = await supabase
+          .from('likes')
+          .select(`
+            id,
+            sender:profiles!likes_sender_fkey (
+              id,
+              full_name,
+              age,
+              location,
+              extra_images,
+              created_at
+            ),
+            liked_at
+          `)
+          .eq('receiver', currentUser.id)
+          .order('liked_at', { ascending: false });
+
+        if (receivedError) throw receivedError;
+
+        // Fetch likes sent by current user to check for mutual likes
+        const { data: sentLikes, error: sentError } = await supabase
+          .from('likes')
+          .select('receiver')
+          .eq('sender', currentUser.id);
+
+        if (sentError) throw sentError;
+
+        // Create a set of profiles the user has liked
+        const sentLikeIds = new Set(sentLikes.map(like => like.receiver));
+
+        // Transform data with mutual flag
+        const transformedLikes = receivedLikes.map(like => ({
+          id: like.id,
+          name: like.sender.full_name,
+          age: like.sender.age,
+          location: like.sender.location,
+          matchPercentage: Math.floor(Math.random() * 30) + 70, // Random match percentage
+          time: formatTime(like.liked_at),
+          image: like.sender.extra_images 
+            ? like.sender.extra_images.split(',')[0].trim() 
+            : 'https://via.placeholder.com/150',
+          mutual: sentLikeIds.has(like.sender.id),
+          profileId: like.sender.id
+        }));
+
+        setLikesData(transformedLikes);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to fetch likes');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (currentUser) fetchLikes();
+  }, [currentUser]);
+
+  // Format timestamp to relative time
+  const formatTime = (timestamp) => {
+    const now = new Date();
+    const date = new Date(timestamp);
+    const diffMinutes = Math.floor((now - date) / 60000);
+    
+    if (diffMinutes < 1) return 'Just now';
+    if (diffMinutes < 60) return `${diffMinutes} min${diffMinutes > 1 ? 's' : ''} ago`;
+    if (diffMinutes < 1440) {
+      const hours = Math.floor(diffMinutes / 60);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    }
+    const days = Math.floor(diffMinutes / 1440);
+    return `${days} day${days > 1 ? 's' : ''} ago`;
+  };
+
+  // Toggle like status
+  const toggleLike = async (profileId) => {
+    try {
+      // Check if like already exists
+      const { data: existingLike, error: existingError } = await supabase
+        .from('likes')
+        .select()
+        .eq('sender', currentUser.id)
+        .eq('receiver', profileId)
+        .maybeSingle();
+      
+      if (existingError) throw existingError;
+      
+      if (existingLike) {
+        // Unlike: remove from database
+        const { error: deleteError } = await supabase
+          .from('likes')
+          .delete()
+          .eq('id', existingLike.id);
+        
+        if (deleteError) throw deleteError;
+        
+        // Update UI
+        setLikesData(prev => 
+          prev.map(like => 
+            like.profileId === profileId ? { ...like, mutual: false } : like
+          )
+        );
+        
+        Alert.alert("Unliked", "You removed your like");
+      } else {
+        // Like: add to database
+        const { error: insertError } = await supabase
+          .from('likes')
+          .insert([{ 
+            sender: currentUser.id, 
+            receiver: profileId 
+          }]);
+        
+        if (insertError) throw insertError;
+        
+        // Update UI
+        setLikesData(prev => 
+          prev.map(like => 
+            like.profileId === profileId ? { ...like, mutual: true } : like
+          )
+        );
+        
+        Alert.alert("Liked!", "You liked this profile");
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update like status');
+      console.error(error);
+    }
+  };
+
   // Filter likes based on active tab
   const filteredLikes = likesData.filter(like => {
     if (activeTab === 'all') return true;
@@ -37,17 +186,11 @@ export default function LikesScreen() {
     return true;
   });
 
-  // Fade in animation
-  React.useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 500,
-      useNativeDriver: true,
-    }).start();
-  }, []);
-
   const renderLikeItem = ({ item }) => (
-    <TouchableOpacity style={styles.likeCard}>
+    <TouchableOpacity 
+      style={styles.likeCard}
+      onPress={() => navigation.navigate('ProfileDetail', { profileId: item.profileId })}
+    >
       <Image source={{ uri: item.image }} style={styles.likeImage} />
       
       <View style={styles.likeInfo}>
@@ -78,7 +221,13 @@ export default function LikesScreen() {
         <Text style={styles.time}>{item.time}</Text>
       </View>
       
-      <TouchableOpacity style={styles.likeButton}>
+      <TouchableOpacity 
+        style={styles.likeButton}
+        onPress={(e) => {
+          e.stopPropagation(); // Prevent triggering card press
+          toggleLike(item.profileId);
+        }}
+      >
         {item.mutual ? (
           <MaterialCommunityIcons name="heart" size={28} color="#FF5A5F" />
         ) : (
@@ -87,6 +236,15 @@ export default function LikesScreen() {
       </TouchableOpacity>
     </TouchableOpacity>
   );
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF5A5F" />
+        <Text style={styles.loadingText}>Loading your likes...</Text>
+      </View>
+    );
+  }
 
   return (
     <Animated.View style={[styles.container, { opacity: fadeAnim }]}>
@@ -107,9 +265,11 @@ export default function LikesScreen() {
           <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>
             All Likes
           </Text>
-          <View style={styles.tabBadge}>
-            <Text style={styles.tabBadgeText}>{likesData.length}</Text>
-          </View>
+          {likesData.length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>{likesData.length}</Text>
+            </View>
+          )}
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -119,11 +279,13 @@ export default function LikesScreen() {
           <Text style={[styles.tabText, activeTab === 'mutual' && styles.activeTabText]}>
             Mutual
           </Text>
-          <View style={styles.tabBadge}>
-            <Text style={styles.tabBadgeText}>
-              {likesData.filter(l => l.mutual).length}
-            </Text>
-          </View>
+          {likesData.filter(l => l.mutual).length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>
+                {likesData.filter(l => l.mutual).length}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
         
         <TouchableOpacity 
@@ -133,11 +295,13 @@ export default function LikesScreen() {
           <Text style={[styles.tabText, activeTab === 'new' && styles.activeTabText]}>
             New Likes
           </Text>
-          <View style={styles.tabBadge}>
-            <Text style={styles.tabBadgeText}>
-              {likesData.filter(l => !l.mutual).length}
-            </Text>
-          </View>
+          {likesData.filter(l => !l.mutual).length > 0 && (
+            <View style={styles.tabBadge}>
+              <Text style={styles.tabBadgeText}>
+                {likesData.filter(l => !l.mutual).length}
+              </Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
       
@@ -160,9 +324,17 @@ export default function LikesScreen() {
           />
           <Text style={styles.emptyTitle}>No Likes Yet</Text>
           <Text style={styles.emptyText}>
-            Complete your profile and start swiping to get more likes!
+            {activeTab === 'mutual' 
+              ? "You don't have any mutual likes yet. Keep swiping to find matches!" 
+              : activeTab === 'new'
+              ? "No new likes. Complete your profile to get more attention!"
+              : "Start swiping to get likes from other users!"
+            }
           </Text>
-          <TouchableOpacity style={styles.profileButton}>
+          <TouchableOpacity 
+            style={styles.profileButton}
+            onPress={() => navigation.navigate('EditProfile')}
+          >
             <Text style={styles.profileButtonText}>Complete Profile</Text>
           </TouchableOpacity>
         </View>
@@ -172,15 +344,29 @@ export default function LikesScreen() {
       <View style={styles.premiumBanner}>
         <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
         <Text style={styles.premiumText}>See who likes you with Premium</Text>
-        <TouchableOpacity style={styles.upgradeButton}>
+        <TouchableOpacity 
+          style={styles.upgradeButton}
+          onPress={() => navigation.navigate('Premium')}
+        >
           <Text style={styles.upgradeText}>Upgrade</Text>
         </TouchableOpacity>
       </View>
     </Animated.View>
   );
-}
+};
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 16,
+    color: '#666',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8f9fa',
@@ -396,3 +582,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
+
+export default LikesScreen;
