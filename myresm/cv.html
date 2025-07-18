@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mahroof Ali P - Full Stack Developer</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f5f7fa 100%);
+            color: #333;
+            line-height: 1.6;
+            padding: 30px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .resume-container {
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.15);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #0d3b66 0%, #1a5a8d 100%);
+            color: white;
+            padding: 40px 50px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 35%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.05);
+            transform: skewX(-15deg);
+            z-index: -1;
+        }
+        
+        .header-content {
+            flex: 1;
+            padding-right: 30px;
+        }
+        
+        .name-title {
+            margin-bottom: 20px;
+        }
+        
+        .name {
+            font-size: 2.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            margin-bottom: 5px;
+        }
+        
+        .title {
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: rgba(255, 255, 255, 0.9);
+            margin-bottom: 10px;
+        }
+        
+        .experience-badge {
+            display: inline-block;
+            background: #e76f51;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+        
+        .contact-info {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+        }
+        
+        .contact-item:hover {
+            transform: translateX(5px);
+        }
+        
+        .contact-item i {
+            color: #e76f51;
+            font-size: 1.1rem;
+            width: 20px;
+            text-align: center;
+        }
+        
+        .photo-container {
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            border: 5px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            background: #2a9d8f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .photo-placeholder {
+            color: white;
+            font-size: 3.5rem;
+            opacity: 0.8;
+        }
+        
+        /* Main Content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            padding: 40px 50px;
+        }
+        
+        /* Section Styles */
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            color: #0d3b66;
+            font-size: 1.4rem;
+            font-weight: 700;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: relative;
+        }
+        
+        .section-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 60px;
+            height: 4px;
+            background: #e76f51;
+            border-radius: 2px;
+        }
+        
+        .section-title i {
+            color: #e76f51;
+            background: rgba(231, 111, 81, 0.15);
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .professional-summary {
+            background: rgba(42, 157, 143, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 4px solid #2a9d8f;
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+        
+        /* Experience Styles */
+        .experience-item {
+            margin-bottom: 30px;
+            position: relative;
+            padding-left: 25px;
+            border-left: 2px solid rgba(13, 59, 102, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .experience-item:hover {
+            border-left: 2px solid #e76f51;
+        }
+        
+        .experience-item::before {
+            content: '';
+            position: absolute;
+            left: -10px;
+            top: 12px;
+            height: 18px;
+            width: 18px;
+            background: white;
+            border: 3px solid #e76f51;
+            border-radius: 50%;
+            z-index: 2;
+        }
+        
+        .experience-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .company {
+            font-weight: 700;
+            color: #0d3b66;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .position {
+            font-weight: 600;
+            color: #333;
+            background: rgba(42, 157, 143, 0.1);
+            padding: 4px 12px;
+            border-radius: 4px;
+            display: inline-block;
+        }
+        
+        .duration-location {
+            display: flex;
+            gap: 15px;
+            font-size: 0.95rem;
+            color: #6c757d;
+            margin-bottom: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .duration-location i {
+            font-size: 0.9rem;
+            color: #2a9d8f;
+        }
+        
+        .highlights {
+            padding-left: 20px;
+        }
+        
+        .highlights li {
+            margin-bottom: 10px;
+            position: relative;
+            padding-left: 20px;
+        }
+        
+        .highlights li::before {
+            content: "▹";
+            position: absolute;
+            left: 0;
+            color: #e76f51;
+            font-size: 1.2rem;
+        }
+        
+        /* Skills Section */
+        .skills-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-top: 15px;
+        }
+        
+        .skill-tag {
+            background: rgba(13, 59, 102, 0.08);
+            padding: 10px 15px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .skill-tag:hover {
+            background: rgba(231, 111, 81, 0.15);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        }
+        
+        /* Education & Certifications */
+        .education-item, .certification-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: rgba(13, 59, 102, 0.03);
+            position: relative;
+            overflow: hidden;
+            border-left: 4px solid #2a9d8f;
+        }
+        
+        .education-title, .certification-title {
+            font-weight: 700;
+            color: #0d3b66;
+            margin-bottom: 5px;
+        }
+        
+        .education-details, .certification-details {
+            font-size: 0.95rem;
+            color: #6c757d;
+        }
+        
+        /* Projects Section */
+        .project-item {
+            margin-bottom: 25px;
+            padding: 20px;
+            border-radius: 10px;
+            background: rgba(13, 59, 102, 0.03);
+            border-left: 4px solid #2a9d8f;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .project-item:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.08);
+        }
+        
+        .project-title {
+            font-weight: 700;
+            color: #0d3b66;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1rem;
+        }
+        
+        .project-title i {
+            color: #e76f51;
+            font-size: 1.2rem;
+        }
+        
+        .project-duration {
+            font-size: 0.95rem;
+            color: #6c757d;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .project-description {
+            margin-bottom: 15px;
+            padding-left: 10px;
+            position: relative;
+        }
+        
+        .project-stack {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        
+        .stack-tag {
+            background: rgba(42, 157, 143, 0.1);
+            padding: 6px 12px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .stack-tag i {
+            color: #2a9d8f;
+            font-size: 0.9rem;
+        }
+        
+        /* Time Management */
+        .priority-list li {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 12px 15px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            background: rgba(13, 59, 102, 0.03);
+        }
+        
+        .priority-list li:hover {
+            background: rgba(42, 157, 143, 0.05);
+            transform: translateX(5px);
+        }
+        
+        .priority-list i {
+            color: #2a9d8f;
+            font-size: 1.2rem;
+            min-width: 25px;
+            text-align: center;
+        }
+        
+        /* Print Button */
+        .print-btn {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            background: #0d3b66;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.25);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: all 0.3s ease;
+            font-size: 1.1rem;
+        }
+        
+        .print-btn:hover {
+            background: #0a2a4d;
+            transform: translateY(-3px) scale(1.05);
+            box-shadow: 0 12px 30px rgba(0,0,0,0.3);
+        }
+        
+        /* Decorative elements */
+        .decorative-circle {
+            position: absolute;
+            width: 300px;
+            height: 300px;
+            border-radius: 50%;
+            background: rgba(42, 157, 143, 0.05);
+            z-index: 0;
+        }
+        
+        .circle-1 {
+            top: -150px;
+            right: -150px;
+        }
+        
+        .circle-2 {
+            bottom: -100px;
+            left: -100px;
+            width: 250px;
+            height: 250px;
+            background: rgba(231, 111, 81, 0.05);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                padding: 30px;
+            }
+            
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                padding: 30px;
+            }
+            
+            .header-content {
+                padding-right: 0;
+                margin-bottom: 25px;
+            }
+            
+            .photo-container {
+                align-self: center;
+            }
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 15px;
+            }
+            
+            .header, .main-content {
+                padding: 25px;
+            }
+            
+            .name {
+                font-size: 2.3rem;
+            }
+            
+            .title {
+                font-size: 1.3rem;
+            }
+            
+            .contact-info {
+                gap: 10px;
+            }
+            
+            .print-btn {
+                bottom: 15px;
+                right: 15px;
+                padding: 12px 20px;
+                font-size: 1rem;
+            }
+            
+            .photo-container {
+                width: 130px;
+                height: 130px;
+            }
+        }
+        
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .resume-container {
+                box-shadow: none;
+                margin: 0;
+                max-width: 100%;
+                border-radius: 0;
+            }
+            
+            .print-btn {
+                display: none;
+            }
+            
+            .header {
+                padding: 30px !important;
+            }
+            
+            .main-content {
+                padding: 30px !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="resume-container">
+        <div class="decorative-circle circle-1"></div>
+        <div class="decorative-circle circle-2"></div>
+        
+        <!-- Header Section -->
+        <div class="header">
+            <div class="header-content">
+                <div class="name-title">
+                    <h1 class="name">Mahroof Ali P</h1>
+                    <h2 class="title">Full-Stack Developer</h2>
+                    <div class="experience-badge">3.1+ Years Experience</div>
+                </div>
+                
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <span>Dubai, UAE</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-phone"></i>
+                        <span>+971 525369923</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fas fa-envelope"></i>
+                        <span>alimahroof155@gmail.com</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fab fa-linkedin"></i>
+                        <span>linkedin.com/in/mahroofali</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="fab fa-github"></i>
+                        <span>github.com/mahroofalip</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="photo-container">
+                <!-- <i class="fas fa-user-circle photo-placeholder"></i> -->
+                <!-- Replace with your photo:  -->
+                <img src="https://media.licdn.com/dms/image/v2/D5603AQEj99xWHoDgfA/profile-displayphoto-shrink_800_800/B56ZUtvxcdGsAs-/0/1740229253733?e=1758153600&v=beta&t=z2hZAG539oi8heszlR_pp-wCOBloivvrE14y5Eu-cuQ" alt="Mahroof Ali P" style="width:100%;height:100%;object-fit:cover;"> 
+               
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Left Column -->
+            <div class="left-column">
+                <!-- Professional Summary -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-user"></i>Professional Summary</h3>
+                    <div class="professional-summary">
+                        <p>Full-Stack Developer with 3.1+ years of experience in MERN and MEAN stacks. Proficient in cloud deployment (AWS, Heroku), CI/CD using AWS Amplify and Docker, and developing scalable real-time applications. At Alchemist Advanced Technology, engineered integrations with multiple payment platforms (PayPal, Stripe, Rakbank), compliance tools (Lean Tech, AIPrise), and real estate APIs (Bayut, Property Finder). Developed a React Native application with Supabase for real-time chat and user profile management. Recognized for leading development projects and quick adaptability to new technologies.</p>
+                    </div>
+                </div>
+                
+                <!-- Professional Experience -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-briefcase"></i>Professional Experience</h3>
+                    
+                    <!-- Experience 1 -->
+                    <div class="experience-item">
+                        <div class="experience-header">
+                            <div class="position">Senior Developer</div>
+                        </div>
+                        <div class="company">
+                            <i class="fas fa-building"></i>Alchemist Advanced Technology
+                        </div>
+                        <div class="duration-location">
+                            <i class="fas fa-calendar-alt"></i><span>11/2024 – Present</span>
+                            <i class="fas fa-map-pin"></i><span>Dubai, UAE</span>
+                        </div>
+                        <ul class="highlights">
+                            <li>Specialized in Zoho ecosystem: Zoho CRM, Zoho Creator, Zoho Books, Zoho People, and Deluge scripting</li>
+                            <li>Developed and extended Zoho products using Sigma extension builder</li>
+                            <li>Integrated multiple payment platforms: PayPal, Network, Checkout, Stripe, Rakbank, Vaultspay</li>
+                            <li>Integrated compliance and verification tools: Lean Tech (IBAN verification) and AIPrise</li>
+                            <li>Built biometric integration with Zoho People for enhanced security</li>
+                            <li>Connected with digital product platforms like Hotmart, Shopify (POS & Online Store) using both GraphQL and REST APIs</li>
+                            <li>Integrated real estate APIs such as Bayut and Property Finder to expand service offerings</li>
+                            <li>Created fashion tech solutions via Zedonk software integration</li>
+                            <li>Designed and deployed a React Native application using Supabase for real-time chat and user profile management with modern UI</li>
+                            <li>Implemented Zoho CRM Automation using workflow rules and third-party services</li>
+                            <li>Automated processes across Zoho Books, Zoho People, Zoho Inventory, and Zoho Creator with seamless third-party integrations</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Experience 2 -->
+                    <div class="experience-item">
+                        <div class="experience-header">
+                            <div class="position">Full Stack Software Developer</div>
+                        </div>
+                        <div class="company">
+                            <i class="fas fa-building"></i>Paripoorna Software Pvt Ltd
+                        </div>
+                        <div class="duration-location">
+                            <i class="fas fa-calendar-alt"></i><span>Jan 2023 – Nov 2024</span>
+                            <i class="fas fa-map-pin"></i><span>Chennai, India</span>
+                        </div>
+                        <ul class="highlights">
+                            <li>Boosted application performance by 20% using Angular and .NET Core optimization techniques</li>
+                            <li>Built a comprehensive job-seeking platform using MERN Stack and GraphQL</li>
+                            <li>Developed container maintenance and inventory management systems with real-time tracking</li>
+                            <li>Utilized Entity Framework, PostgreSQL, and AWS for RESTful API development and deployment</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- Experience 3 -->
+                    <div class="experience-item">
+                        <div class="experience-header">
+                            <div class="position">Full Stack Developer</div>
+                        </div>
+                        <div class="company">
+                            <i class="fas fa-building"></i>LoadRunnr Technologies Pvt Ltd
+                        </div>
+                        <div class="duration-location">
+                            <i class="fas fa-calendar-alt"></i><span>May 2022 – Jan 2023</span>
+                            <i class="fas fa-map-pin"></i><span>Bangalore, India</span>
+                        </div>
+                        <ul class="highlights">
+                            <li>Created transport management system using Node.js, React.js, and Socket.IO for real-time updates</li>
+                            <li>Improved transaction speed by 30% by integrating PayPal, Razorpay, and deploying on AWS infrastructure</li>
+                            <li>Utilized CI/CD tools for automation, enhancing deployment speed and accuracy</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Projects -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-code"></i>Projects</h3>
+                    
+                    <!-- Project 1 -->
+                    <div class="project-item">
+                        <div class="project-title"><i class="fas fa-briefcase"></i>Job-Seeking Platform</div>
+                        <div class="project-duration"><i class="fas fa-calendar"></i>2023 – Nov 2024, Bangalore</div>
+                        <div class="project-description">Full-stack application with React.js, Node.js, GraphQL, MongoDB that increased job search efficiency by 30% with advanced filtering algorithms.</div>
+                        <div class="project-stack">
+                            <span class="stack-tag"><i class="fab fa-react"></i>React.js</span>
+                            <span class="stack-tag"><i class="fab fa-node-js"></i>Node.js</span>
+                            <span class="stack-tag"><i class="fas fa-project-diagram"></i>GraphQL</span>
+                            <span class="stack-tag"><i class="fas fa-database"></i>MongoDB</span>
+                        </div>
+                    </div>
+                    
+                    <!-- Project 2 -->
+                    <div class="project-item">
+                        <div class="project-title"><i class="fas fa-truck-moving"></i>Transport Management System</div>
+                        <div class="project-duration"><i class="fas fa-calendar"></i>2023, Bangalore</div>
+                        <div class="project-description">Real-time tracking system deployed via AWS EC2 and S3 with integrated payment gateways and logistics management.</div>
+                        <div class="project-stack">
+                            <span class="stack-tag"><i class="fab fa-node-js"></i>Node.js</span>
+                            <span class="stack-tag"><i class="fab fa-react"></i>React.js</span>
+                            <span class="stack-tag"><i class="fas fa-bolt"></i>Socket.IO</span>
+                            <span class="stack-tag"><i class="fab fa-aws"></i>AWS</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column -->
+            <div class="right-column">
+                <!-- Skills -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-tools"></i>Key Skills</h3>
+                    <div class="skills-grid">
+                        <div class="skill-tag">Zoho CRM</div>
+                        <div class="skill-tag">Deluge</div>
+                        <div class="skill-tag">Zoho Books</div>
+                        <div class="skill-tag">Zoho People</div>
+                        <div class="skill-tag">Zoho Flow</div>
+                        <div class="skill-tag">Zoho Creator</div>
+                        <div class="skill-tag">Zoho Sigma</div>
+                        <div class="skill-tag">Zoho Inventory</div>
+                        <div class="skill-tag">Hotmart</div>
+                        <div class="skill-tag">Checkout</div>
+                        <div class="skill-tag">Network</div>
+                        <div class="skill-tag">PayPal</div>
+                        <div class="skill-tag">Stripe</div>
+                        <div class="skill-tag">Vaultspay</div>
+                        <div class="skill-tag">LeanTech</div>
+                        <div class="skill-tag">AIPrise</div>
+                        <div class="skill-tag">Zedonk</div>
+                        <div class="skill-tag">Shopify</div>
+                        <div class="skill-tag">Tomcat Apache</div>
+                        <div class="skill-tag">JavaScript</div>
+                        <div class="skill-tag">TypeScript</div>
+                        <div class="skill-tag">.NET Core</div>
+                        <div class="skill-tag">React</div>
+                        <div class="skill-tag">Angular</div>
+                        <div class="skill-tag">Redux</div>
+                        <div class="skill-tag">React Native</div>
+                        <div class="skill-tag">Node.js</div>
+                        <div class="skill-tag">Express.js</div>
+                        <div class="skill-tag">GraphQL</div>
+                        <div class="skill-tag">Socket.IO</div>
+                        <div class="skill-tag">MongoDB</div>
+                        <div class="skill-tag">PostgreSQL</div>
+                        <div class="skill-tag">MySQL</div>
+                        <div class="skill-tag">Snowflake</div>
+                        <div class="skill-tag">AWS</div>
+                        <div class="skill-tag">Heroku</div>
+                        <div class="skill-tag">CI/CD</div>
+                        <div class="skill-tag">Communication</div>
+                        <div class="skill-tag">Leadership</div>
+                        <div class="skill-tag">Teamwork</div>
+                        <div class="skill-tag">Time Management</div>
+                        <div class="skill-tag">Problem Solving</div>
+                        <div class="skill-tag">Git & GitHub</div>
+                    </div>
+                </div>
+                
+                <!-- Education -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-graduation-cap"></i>Education</h3>
+                    <div class="education-item">
+                        <div class="education-title">Bachelor of Arts</div>
+                        <div class="education-details">Calicut University, Kozhikode, Kerala</div>
+                        <div class="education-details">Jan 2018 – Jan 2021</div>
+                    </div>
+                </div>
+                
+                <!-- Certifications -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-certificate"></i>Certifications</h3>
+                    <div class="certification-item">
+                        <div class="certification-title">Snowflake</div>
+                        <div class="certification-details">Trained in Snowflake (cloud-based data warehousing)</div>
+                    </div>
+                    <div class="certification-item">
+                        <div class="certification-title">MERN Stack</div>
+                        <div class="certification-details">Certified by Brocamp</div>
+                    </div>
+                </div>
+                
+                <!-- Key Achievements -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-trophy"></i>Key Achievements</h3>
+                    <ul class="highlights">
+                        <li>Job-Seeking Platform: Developed real-time job search with authentication that increased user engagement by 40%</li>
+                        <li>Transport Management System: Implemented payment gateway integration that improved transaction speed by 30%</li>
+                        <li>Container Maintenance System: Increased operational efficiency by 30% for clients</li>
+                        <li>Zoho Ecosystem: Developed 15+ custom integrations for Zoho platform</li>
+                    </ul>
+                </div>
+                
+                <!-- Time Management Priorities -->
+                <div class="section">
+                    <h3 class="section-title"><i class="fas fa-clock"></i>Time Management</h3>
+                    <ul class="priority-list">
+                        <li><i class="fas fa-chart-line"></i>Professional Development</li>
+                        <li><i class="fas fa-briefcase"></i>Work Projects</li>
+                        <li><i class="fas fa-network-wired"></i>Networking</li>
+                        <li><i class="fas fa-dumbbell"></i>Fitness and Health</li>
+                        <li><i class="fas fa-users"></i>Family and Social Time</li>
+                        <li><i class="fas fa-seedling"></i>Personal Growth & Planning</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <button class="print-btn" onclick="downloadPDF()">
+    <i class="fas fa-download"></i> Download CV
+</button>
+<script>
+function downloadPDF() {
+    const element = document.body; // You can target a specific div instead of the whole page
+    const opt = {
+        margin:       0.5,
+        filename:     'document.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(element).save();
+}
+</script>
+
+
+    <script>
+        // Add a print stylesheet for better print formatting
+        document.head.insertAdjacentHTML('beforeend', `
+            <style>
+                @media print {
+                    body {
+                        background: white;
+                        padding: 0;
+                        margin: 0;
+                    }
+                    
+                    .resume-container {
+                        box-shadow: none;
+                        margin: 0;
+                        padding: 0;
+                        width: 100%;
+                        border-radius: 0;
+                    }
+                    
+                    .print-btn {
+                        display: none;
+                    }
+                    
+                    .header {
+                        padding: 30px !important;
+                    }
+                    
+                    .main-content {
+                        padding: 30px !important;
+                    }
+                    
+                    .decorative-circle {
+                        display: none;
+                    }
+                }
+            </style>
+        `);
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+</body>
+</html>

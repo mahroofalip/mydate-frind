@@ -7,83 +7,90 @@ const { width, height } = Dimensions.get('window');
 export default function WelcomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
 
- useEffect(() => {
-  const checkSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
 
-    if (!session?.user?.email_confirmed_at) {
-      setLoading(false);
-      return;
-    }
+      if (!session?.user?.email_confirmed_at) {
+        setLoading(false);
+        return;
+      }
 
-    const userId = session.user.id;
+      const userId = session.user.id;
 
-    // 1. Check if profile exists
-    const { data: profile, error } = await supabase
-      .from('profiles')
-      .select('full_name, age, gender, location, looking_for')
-      .eq('id', userId)
-      .single();
+      // 1. Check if profile exists
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('full_name, age, gender, location, looking_for')
+        .eq('id', userId)
+        .single();
 
-    if (error && error.code !== 'PGRST116') { // 'PGRST116' = no rows returned
-      setLoading(false);
-      return;
-    }
+      if (error && error.code !== 'PGRST116') { // 'PGRST116' = no rows returned
+        setLoading(false);
+        return;
+      }
 
-    if (!profile) {
-      // No profile found → go to setup
+      if (!profile) {
+        // No profile found → go to setup
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'ProfileSetupScreen' }],
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 2. Profile exists → check if complete
+      const { data: files, error: listError } = await supabase.storage
+        .from('profile-photos')
+        .list(`${userId}/`);
+
+      if (listError) {
+        setLoading(false);
+        return;
+      }
+
+      // Check for selfie and extra images\
+      console.log('Files in storage:', files);
+
+      const selfieExists = files?.some(file => file.name.startsWith('selfie_'));
+      const extraImageExists = files?.some(file =>
+        /^extra_\d+_\d+\.(jpeg|jpg|png)$/.test(file.name)
+      );
+
+
+      const requiredFields = [
+        selfieExists,
+        extraImageExists,
+        profile?.full_name,
+        profile?.age,
+        profile?.gender,
+        profile?.location,
+        profile?.looking_for,
+      ];
+
+      console.log('Profile fields:', requiredFields);
+
+
+      const isProfileComplete = requiredFields.every(field => {
+        if (typeof field === 'boolean') return field;
+        return field && field.toString().trim() !== '';
+      });
+
+      // alert(isProfileComplete ? 'Profile is complete' : 'Profile is incomplete');
+
       navigation.reset({
         index: 0,
-        routes: [{ name: 'ProfileSetupScreen' }],
+        routes: [{
+          name: isProfileComplete ? 'MainTabs' : 'ProfileUpdateScreen',
+        }],
       });
+
       setLoading(false);
-      return;
-    }
+    };
 
-    // 2. Profile exists → check if complete
-    const { data: files, error: listError } = await supabase.storage
-      .from('profile-photos')
-      .list(`${userId}/`);
-
-    if (listError) {
-      setLoading(false);
-      return;
-    }
-
-    // Check for selfie and extra images
-    const selfieExists = files?.some(file => file.name.startsWith('selfie.'));
-    const extraImageExists = files?.some(file =>
-      /^extra_[0-2]\./.test(file.name)
-    );
-
-    const requiredFields = [
-      selfieExists,
-      extraImageExists,
-      profile?.full_name,
-      profile?.age,
-      profile?.gender,
-      profile?.location,
-      profile?.looking_for,
-    ];
-
-
-    const isProfileComplete = requiredFields.every(field => {
-      if (typeof field === 'boolean') return field;
-      return field && field.toString().trim() !== '';
-    });
-
-    navigation.reset({
-      index: 0,
-      routes: [{
-        name: isProfileComplete ? 'MainTabs' : 'ProfileUpdateScreen',
-      }],
-    });
-
-    setLoading(false);
-  };
-
-  checkSession();
-}, []);
+    checkSession();
+  }, []);
 
 
 
