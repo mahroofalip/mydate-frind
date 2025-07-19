@@ -121,7 +121,7 @@ export default function ProfileScreen({ navigation }) {
           setInterests(profile.interests ? profile.interests.split(',') : []);
           setLookingFor(profile.looking_for || '');
           setExtraImages(profile.extra_images ? profile.extra_images.split(',') : []);
-          setProfileUrl(profile.extra_images ? profile.extra_images.split(',')[0].trim() : null);
+          setProfileUrl(profile.extra_images ? profile.selfie_url : null);
         }
       } catch (err) {
         Alert.alert('Error', err.message);
@@ -204,10 +204,10 @@ export default function ProfileScreen({ navigation }) {
             {extraImages.map((photo, index) => (
               <TouchableOpacity key={index} style={styles.photoItem}>
                 <Image source={{ uri: photo }} style={styles.photo} />
-                {index === 0 && <Text style={styles.photoBadge}>Main</Text>}
+                {/* {index === 0 && <Text style={styles.photoBadge}>Main</Text>} */}
               </TouchableOpacity>
             ))}
-            <TouchableOpacity style={styles.addPhoto}>
+            <TouchableOpacity onPress={handleEdit} style={styles.addPhoto}>
               <MaterialIcons name="add" size={30} color="#FF5A5F" />
             </TouchableOpacity>
           </ScrollView>

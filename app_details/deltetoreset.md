@@ -14,5 +14,8 @@ Remove-Item .\package-lock.json   # or .\yarn.lock
 Remove-Item -Recurse -Force .\.expo
 
 npm install
+adb devices  
 npx expo run:android
+eas build -p android --profile development
+eas build -p android --profile production
 

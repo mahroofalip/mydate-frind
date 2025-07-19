@@ -22,16 +22,16 @@ const { width } = Dimensions.get('window');
 
 export default function ProfileSetupScreen({ navigation }) {
   // State variables
-  const [name, setName] = useState('');
-  const [bio, setBio] = useState('');
-  const [age, setAge] = useState('');
-  const [gender, setGender] = useState('');
-  const [location, setLocation] = useState('');
-  const [occupation, setOccupation] = useState('');
-  const [education, setEducation] = useState('');
-  const [interests, setInterests] = useState('');
-  const [lookingFor, setLookingFor] = useState('');
-  const [selfie, setSelfie] = useState(null);
+  const [name, setName] = useState('John Doe');
+  const [bio, setBio] = useState('Hello! I am a software developer who loves to explore new technologies and meet new people.');
+  const [age, setAge] = useState('25');
+  const [gender, setGender] = useState('Male');
+  const [location, setLocation] = useState('Manjeri');
+  const [occupation, setOccupation] = useState('software devloper');
+  const [education, setEducation] = useState('BA');
+  const [interests, setInterests] = useState('Software Development, Music, Traveling');
+  const [lookingFor, setLookingFor] = useState('Dating');
+  const [profilePic, setProfilePic] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
@@ -43,7 +43,7 @@ export default function ProfileSetupScreen({ navigation }) {
     const newErrors = {};
     
     if (!name.trim()) newErrors.name = 'Name is required';
-    if (!selfie) newErrors.selfie = 'Selfie is required';
+    if (!profilePic) newErrors.profilePic = 'Profile Image is required';
     if (!age) newErrors.age = 'Age is required';
     if (age && (parseInt(age) < 18 || parseInt(age) > 100)) 
       newErrors.age = 'Age must be between 18-100';
@@ -56,33 +56,32 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   // Handle image selection
-  const handleImageSelection = async (isCamera) => {
-
-    const options = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect,
-      quality: 0.7,
-    };
-
-    try {
-      const result = isCamera 
-        ? await ImagePicker.launchCameraAsync(options)
-        : await ImagePicker.launchImageLibraryAsync(options);
-
-      if (!result.canceled) {
-        const uri = result.assets[0].uri;
-        
-        if (!selfie) {
-          setSelfie(uri);
-        } else if (extraImages.length < 4) {
-          setExtraImages([...extraImages, uri]);
-        }
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to select image. Please try again.');
-    }
+  const handleImageSelection = async (forSelfie = false) => {
+  const options = {
+    mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    allowsEditing: true,
+    aspect,
+    quality: 0.7,
   };
+
+  try {
+    const result = await ImagePicker.launchImageLibraryAsync(options);
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+
+      if (forSelfie) {
+        setProfilePic(uri);
+      } else if (extraImages.length < 4) {
+        setExtraImages([...extraImages, uri]);
+      }
+    }
+  } catch (error) {
+    console.error('Image selection error:', error);
+    Alert.alert('Error', error);
+  }
+};
+
 
   // Remove extra image
   const removeExtraImage = (index) => {
@@ -103,16 +102,16 @@ const handleNext = async () => {
       return;
     }
 
-    // --- 1. Upload selfie ---
+    // --- 1. Upload profilePic ---
     let selfieUploaded = false;
     let selfieUrl = '';
-    if (selfie && selfie.startsWith('file')) {
-      const fileExt = selfie.split('.').pop();
+    if (profilePic && profilePic.startsWith('file')) {
+      const fileExt = profilePic.split('.').pop();
       const fileName = `${user.id}/selfie_${Date.now()}.${fileExt}`;
       const { error: uploadErr } = await supabase.storage
         .from('profile-photos')
         .upload(fileName, {
-          uri: selfie,
+          uri: profilePic,
           type: 'image/jpeg',
           name: fileName,
         }, { upsert: true });
@@ -161,7 +160,9 @@ const handleNext = async () => {
 
     // --- 3. Validate before insert ---
     if (!selfieUploaded || !extraImageUploaded) {
-      Alert.alert('Incomplete Images', 'Please upload a selfie and at least one extra image before proceeding.');
+      console.log(selfieUploaded,extraImageUploaded);
+      
+       alert('Incomplete Images');
       return;
     }
 
@@ -215,21 +216,21 @@ const handleNext = async () => {
       </View>
       
       <View style={styles.photoSection}>
-        <Text style={styles.label}>Verify With Selfie</Text>
+        <Text style={styles.label}>Upload A Profile</Text>
         <TouchableOpacity 
           onPress={() => handleImageSelection(true)} 
           style={styles.avatarWrapper}
         >
-          {selfie ? (
-            <Image source={{ uri: selfie }} style={styles.avatar} />
+          {profilePic ? (
+            <Image source={{ uri: profilePic }} style={styles.avatar} />
           ) : (
-            <View style={[styles.avatarPlaceholder, errors.selfie && styles.errorBorder]}>
+            <View style={[styles.avatarPlaceholder, errors.profilePic && styles.errorBorder]}>
               <Feather name="camera" size={32} color="#9CA3AF" />
               <Text style={styles.placeholderText}>Tap to take</Text>
             </View>
           )}
         </TouchableOpacity>
-        {errors.selfie && <Text style={styles.errorText}>{errors.selfie}</Text>}
+        {errors.profilePic && <Text style={styles.errorText}>{errors.profilePic}</Text>}
 
         <Text style={styles.label}>Additional Photos (up to 4)</Text>
         <View style={styles.photosWrapper}>

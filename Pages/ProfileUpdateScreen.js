@@ -31,11 +31,12 @@ export default function ProfileUpdateScreen({ navigation }) {
   const [education, setEducation] = useState('');
   const [interests, setInterests] = useState('');
   const [lookingFor, setLookingFor] = useState('');
+  const [profilePic, setProfilePic] = useState(null); // Added profile picture state
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [errors, setErrors] = useState({});
-    const [aspect, setAspect] = useState([10, 14]);
+  const [aspect] = useState([10, 14]);
   
   const scrollViewRef = useRef();
 
@@ -63,6 +64,7 @@ export default function ProfileUpdateScreen({ navigation }) {
           setEducation(profile.education || '');
           setInterests(profile.interests || '');
           setLookingFor(profile.looking_for || '');
+          setProfilePic(profile.selfie_url || null); // Set profile picture
           setExtraImages(profile.extra_images ? profile.extra_images.split(',') : []);
         }
       } catch (err) {
@@ -80,6 +82,7 @@ export default function ProfileUpdateScreen({ navigation }) {
     const newErrors = {};
     
     if (!name.trim()) newErrors.name = 'Name is required';
+    if (!profilePic) newErrors.profilePic = 'Profile Image is required'; // Added validation
     if (!age) newErrors.age = 'Age is required';
     if (age && (parseInt(age) < 18 || parseInt(age) > 100)) 
       newErrors.age = 'Age must be between 18-100';
@@ -92,7 +95,7 @@ export default function ProfileUpdateScreen({ navigation }) {
   };
 
   // Handle image selection
-  const handleImageSelection = async () => {
+  const handleImageSelection = async (forSelfie = false) => {
     const options = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -103,8 +106,14 @@ export default function ProfileUpdateScreen({ navigation }) {
     try {
       const result = await ImagePicker.launchImageLibraryAsync(options);
       
-      if (!result.canceled && extraImages.length < 4) {
-        setExtraImages([...extraImages, result.assets[0].uri]);
+      if (!result.canceled) {
+        const uri = result.assets[0].uri;
+        
+        if (forSelfie) {
+          setProfilePic(uri);
+        } else if (extraImages.length < 4) {
+          setExtraImages([...extraImages, uri]);
+        }
       }
     } catch (error) {
       Alert.alert('Error', 'Failed to select image. Please try again.');
@@ -130,7 +139,29 @@ export default function ProfileUpdateScreen({ navigation }) {
         return;
       }
 
-      // Upload new extra images
+      // Handle profile picture upload
+      let selfieUrl = profilePic;
+      if (profilePic && profilePic.startsWith('file')) {
+        const fileExt = profilePic.split('.').pop();
+        const fileName = `${user.id}/selfie_${Date.now()}.${fileExt}`;
+        const { error: uploadErr } = await supabase.storage
+          .from('profile-photos')
+          .upload(fileName, {
+            uri: profilePic,
+            type: 'image/jpeg',
+            name: fileName,
+          }, { upsert: true });
+
+        if (uploadErr) throw uploadErr;
+        
+        const { data } = supabase.storage
+          .from('profile-photos')
+          .getPublicUrl(fileName);
+        
+        selfieUrl = data.publicUrl;
+      }
+
+      // Handle extra images
       const uploadedExtraUrls = [...extraImages];
       
       for (let i = 0; i < extraImages.length; i++) {
@@ -170,6 +201,7 @@ export default function ProfileUpdateScreen({ navigation }) {
         education,
         interests: interests.split(',').map(i => i.trim()).join(','),
         looking_for: lookingFor,
+        selfie_url: selfieUrl, // Include profile picture URL
         extra_images: uploadedExtraUrls.join(','),
       };
 
@@ -211,6 +243,23 @@ export default function ProfileUpdateScreen({ navigation }) {
       </View>
       
       <View style={styles.photoSection}>
+        {/* Added Profile Picture Section */}
+        <Text style={styles.label}>Profile Picture</Text>
+        <TouchableOpacity 
+          onPress={() => handleImageSelection(true)} 
+          style={styles.avatarWrapper}
+        >
+          {profilePic ? (
+            <Image source={{ uri: profilePic }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatarPlaceholder, errors.profilePic && styles.errorBorder]}>
+              <Feather name="camera" size={32} color="#9CA3AF" />
+              <Text style={styles.placeholderText}>Tap to select</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+        {errors.profilePic && <Text style={styles.errorText}>{errors.profilePic}</Text>}
+        
         <Text style={styles.label}>Additional Photos (up to 4)</Text>
         <View style={styles.photosWrapper}>
           {extraImages.map((img, index) => (
@@ -226,7 +275,7 @@ export default function ProfileUpdateScreen({ navigation }) {
           ))}
           {extraImages.length < 4 && (
             <TouchableOpacity 
-              onPress={handleImageSelection} 
+              onPress={() => handleImageSelection(false)} 
               style={styles.addPhoto}
             >
               <Feather name="plus" size={28} color="#9CA3AF" />
@@ -453,7 +502,6 @@ export default function ProfileUpdateScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  // Reuse styles from ProfileSetupScreen with minor adjustments
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
@@ -533,6 +581,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#374151',
     marginBottom: 12,
+  },
+  avatarWrapper: {
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 120,
+    height: 120,
+    borderRadius: 100,
+    borderWidth: 3,
+    borderColor: '#E0E7FF',
+  },
+  avatarPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 100,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  placeholderText: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 8,
   },
   photosWrapper: {
     flexDirection: 'row',

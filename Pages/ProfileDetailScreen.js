@@ -1,4 +1,3 @@
-// screens/ProfileDetailScreen.js
 import React, { useState } from 'react';
 import {
   View,
@@ -24,9 +23,9 @@ export default function ProfileDetailScreen({ route, navigation }) {
   const [message, setMessage] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   
-  // Combine all profile images
-  const allImages = [profile.image, ...(profile.extraImages || [])];
-  // console.log(profile,"profileprofileprofile");
+  // Combine all profile images (main + extra) and filter out any empty values
+  const allImages = [profile.image, ...(profile.extraImages || [])].filter(Boolean);
+
   const sendMessage = () => {
     if (!message.trim()) {
       Alert.alert('Empty Message', 'Please enter a message.');
@@ -40,45 +39,56 @@ export default function ProfileDetailScreen({ route, navigation }) {
     <View style={styles.container}>
       <ScrollView>
         {/* Image Carousel */}
-        <View style={styles.carouselContainer}>
-          <FlatList
-            data={allImages}
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <Image source={{ uri: item }} style={styles.carouselImage} />
-            )}
-            onMomentumScrollEnd={(e) => {
-              const index = Math.round(
-                e.nativeEvent.contentOffset.x / width
-              );
-              setActiveIndex(index);
-            }}
-          />
-          
-          {/* Image Indicators */}
-          <View style={styles.indicatorContainer}>
-            {allImages.map((_, index) => (
-              <View 
-                key={index} 
-                style={[
-                  styles.indicator,
-                  index === activeIndex && styles.activeIndicator
-                ]} 
-              />
-            ))}
+        {allImages.length > 0 ? (
+          <View style={styles.carouselContainer}>
+            <FlatList
+              data={allImages}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={({ item }) => (
+                <Image 
+                  source={{ uri: item }} 
+                  style={styles.carouselImage}
+                  onError={() => console.log("Failed to load image")}
+                />
+              )}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(
+                  e.nativeEvent.contentOffset.x / width
+                );
+                setActiveIndex(index);
+              }}
+            />
+            
+            {/* Image Indicators */}
+            <View style={styles.indicatorContainer}>
+              {allImages.map((_, index) => (
+                <View 
+                  key={index} 
+                  style={[
+                    styles.indicator,
+                    index === activeIndex && styles.activeIndicator
+                  ]} 
+                />
+              ))}
+            </View>
+            
+            {/* Back Button */}
+            <TouchableOpacity 
+              style={styles.backButton}
+              onPress={() => navigation.goBack()}
+            >
+              <AntDesign name="arrowleft" size={24} color="white" />
+            </TouchableOpacity>
           </View>
-          
-          {/* Back Button */}
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <AntDesign name="arrowleft" size={24} color="white" />
-          </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={styles.noImageContainer}>
+            <MaterialIcons name="image-not-supported" size={80} color="#ccc" />
+            <Text style={styles.noImageText}>No Images Available</Text>
+          </View>
+        )}
 
         {/* Profile Content */}
         <View style={styles.content}>
@@ -114,7 +124,7 @@ export default function ProfileDetailScreen({ route, navigation }) {
           
           <Text style={styles.sectionTitle}>Interests</Text>
           <View style={styles.tagsRow}>
-            {profile.interests.map(tag => (
+            {profile.interests?.map(tag => (
               <View key={tag} style={styles.tag}>
                 <Text style={styles.tagText}>{tag}</Text>
               </View>
@@ -175,6 +185,18 @@ const styles = StyleSheet.create({
   },
   carouselContainer: {
     height: height * 0.6,
+    position: 'relative',
+  },
+  noImageContainer: {
+    height: height * 0.4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f0f0f0',
+  },
+  noImageText: {
+    marginTop: 10,
+    fontSize: 18,
+    color: '#888',
   },
   carouselImage: {
     width,

@@ -145,23 +145,31 @@ export default function HomeScreen({ navigation }) {
         if (error) throw error;
 
         // Map Supabase data to our profile format
-        const formattedProfiles = data.map(profile => ({
-          id: profile.id,
-          name: profile.full_name,
-          age: profile.age,
-          image: profile.extra_images.split(',')[0].trim(),
-          place: profile.location,
-          distance: 'Nearby',
-          bio: profile.bio,
-          interests: profile.interests ? profile.interests.split(',').slice(0, 3) : [],
-          match: `${Math.floor(Math.random() * 30) + 70}%`,
-          lookingFor: profile.looking_for,
-          occupation: profile.occupation,
-          education: profile.education,
-          last_login_at: profile.last_login_at,
-          last_logout_at: profile.last_logout_at,
-          session_expires_at: profile.session_expires_at,
-        }));
+        const formattedProfiles = data.map(profile => {
+          // Process all images from extra_images field
+          const allImages = profile.extra_images 
+            ? profile.extra_images.split(',').map(img => img.trim()).filter(img => img)
+            : [];
+          
+          return {
+            id: profile.id,
+            name: profile.full_name,
+            age: profile.age,
+            image: profile.selfie_url || '', // First image as main
+            extraImages: allImages, // Remaining as extraImages
+            place: profile.location,
+            distance: 'Nearby',
+            bio: profile.bio,
+            interests: profile.interests ? profile.interests.split(',').slice(0, 3) : [],
+            match: `${Math.floor(Math.random() * 30) + 70}%`,
+            lookingFor: profile.looking_for,
+            occupation: profile.occupation,
+            education: profile.education,
+            last_login_at: profile.last_login_at,
+            last_logout_at: profile.last_logout_at,
+            session_expires_at: profile.session_expires_at,
+          };
+        });
 
         setProfiles(formattedProfiles);
       } catch (error) {
@@ -236,7 +244,6 @@ export default function HomeScreen({ navigation }) {
         if (error) throw error;
         
         newLikedProfiles.delete(profile.id);
-        // Alert.alert("Unliked", `You unliked ${profile.name}`);
       } else {
         // Like: add to database and state
         const { error } = await supabase
@@ -249,7 +256,6 @@ export default function HomeScreen({ navigation }) {
         if (error) throw error;
         
         newLikedProfiles.add(profile.id);
-        // Alert.alert("Liked!", `You liked ${profile.name}`);
 
         // Check for reciprocal like (match)
         const { data: reciprocalLike, error: reciprocalError } = await supabase
@@ -337,7 +343,7 @@ export default function HomeScreen({ navigation }) {
     return (
       <View style={styles.cardContainer}>
         <ImageBackground
-          source={{ uri: item.image }}
+          source={{ uri: item.image || 'https://via.placeholder.com/300' }}
           style={styles.image}
           resizeMode="cover"
         >
@@ -379,16 +385,23 @@ export default function HomeScreen({ navigation }) {
 
             <Text style={styles.bio}>{item.bio}</Text>
             <View style={styles.tagsRow}>
-              {/* {item.interests.map((tag, index) => (
+              {item.interests.map((tag, index) => (
                 <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
-              ))} */}
+              ))}
             </View>
              <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.viewProfileButton]}
-                onPress={() => navigation.navigate('ProfileDetail', { profile: item })}
+                onPress={() => navigation.navigate('ProfileDetail', { 
+                  profile: {
+                    ...item,
+                    // Pass both image and extraImages explicitly
+                    image: item.image,
+                    extraImages: item.extraImages
+                  }
+                })}
               >
                 <Ionicons name="person" size={20} color="white" />
                 <Text style={styles.actionButtonText}>View</Text>
@@ -493,124 +506,84 @@ export default function HomeScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000'
-  },
-  loadingText: {
-    marginTop: 20,
-    color: '#fff',
-    fontSize: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#000',
-    padding: 20
-  },
-  emptyText: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#fff',
-    marginTop: 20
-  },
-  emptySubtext: {
-    fontSize: 16,
-    color: '#aaa',
-    marginTop: 10,
-    textAlign: 'center'
-  },
   container: {
     flex: 1,
-    backgroundColor: '#000'
+    backgroundColor: '#f8f9fa',
   },
   cardContainer: {
     width,
     height,
   },
   image: {
+    flex: 1,
     width: '100%',
     height: '100%',
   },
   gradient: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    height: '70%',
+    bottom: 0,
+    height: '60%',
   },
   headerIcons: {
     position: 'absolute',
     top: 50,
-    left: 20,
     right: 20,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    zIndex: 10,
   },
   iconButton: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
     width: 50,
     height: 50,
     borderRadius: 25,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 10,
   },
   infoSection: {
     position: 'absolute',
-    bottom: 40,
-    left: 20,
-    right: 20,
-    paddingBottom: 10,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 25,
   },
   nameRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: 5,
   },
   name: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: '800',
-    color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 8,
+    color: 'white',
   },
   matchBadge: {
     backgroundColor: '#FF5A5F',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    marginLeft: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 7,
+    borderRadius: 20,
   },
   matchText: {
-    color: '#fff',
+    color: 'white',
     fontWeight: '700',
     fontSize: 16,
   },
   place: {
     fontSize: 18,
-    color: '#fff',
-    fontWeight: '600',
-    marginBottom: 2,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 6,
+    color: 'white',
+    marginBottom: 5,
   },
   lastOnline: {
-    fontSize: 14,
-    color: '#f0f0f0',
-    marginBottom: 10,
-    fontWeight: '500',
+    fontSize: 16,
+    color: 'white',
+    marginBottom: 15,
   },
   bio: {
     fontSize: 16,
-    color: '#fff',
+    color: 'white',
     marginBottom: 15,
-    fontWeight: '500',
     lineHeight: 22,
   },
   tagsRow: {
@@ -619,85 +592,102 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   tag: {
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    paddingHorizontal: 14,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
-    marginRight: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
+    marginRight: 10,
+    marginBottom: 10,
   },
   tagText: {
-    color: '#fff',
+    color: 'white',
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
   },
-  //
   actions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 10,
     gap: 15,
   },
   actionButton: {
     flex: 1,
     flexDirection: 'row',
-    padding: 12,
-    borderRadius: 30,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 10,
+    paddingVertical: 15,
+    borderRadius: 30,
+  },
+  viewProfileButton: {
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderWidth: 1,
+    borderColor: 'white',
   },
   messageButton: {
     backgroundColor: '#FF5A5F',
   },
-  viewProfileButton: {
-    backgroundColor: '#444',
-    borderWidth: 1,
-    borderColor: '#666',
-  },
   actionButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+    color: 'white',
+    fontWeight: '700',
     fontSize: 16,
     marginLeft: 8,
   },
-
-  //
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 18,
+    color: '#555',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    padding: 20,
+  },
+  emptyText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 20,
+  },
+  emptySubtext: {
+    fontSize: 16,
+    color: '#777',
+    marginTop: 10,
+    textAlign: 'center',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: '#000000aa',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20
+    padding: 20,
   },
   modalBox: {
     width: '100%',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#fff',
     borderRadius: 25,
     padding: 25,
-    borderWidth: 1,
-    borderColor: '#333',
   },
   modalTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '800',
     marginBottom: 15,
-    color: '#fff',
     textAlign: 'center',
   },
   input: {
-    backgroundColor: '#2a2a2a',
-    color: '#fff',
+    backgroundColor: '#f4f4f4',
     borderRadius: 15,
     padding: 18,
     fontSize: 16,
     minHeight: 120,
     textAlignVertical: 'top',
     marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#444',
   },
   modalActions: {
     flexDirection: 'row',
@@ -705,7 +695,7 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   cancelBtn: {
-    backgroundColor: '#444',
+    backgroundColor: '#888',
     padding: 16,
     borderRadius: 30,
     flex: 1,
@@ -716,11 +706,11 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 30,
     flex: 1,
-    alignItems: 'center'
+    alignItems: 'center',
   },
   buttonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#fff',
+    fontWeight: '700',
     fontSize: 16,
   },
 });
