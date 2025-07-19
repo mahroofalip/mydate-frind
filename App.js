@@ -22,6 +22,7 @@ import ProfileUpdateScreen from './Pages/ProfileUpdateScreen';
 import 'react-native-gesture-handler';
 import { useEffect } from 'react';
 import { supabase } from './lib/supabase';
+import ConnectScreen from './Pages/ConnectScreen';
 
 
 
@@ -34,7 +35,7 @@ function MainTabs() {
         headerShown: false,
         tabBarActiveTintColor: '#FF5A5F', // Romantic pink/red
         tabBarInactiveTintColor: '#888', // Subtle gray
-        tabBarStyle: { 
+        tabBarStyle: {
           paddingBottom: 5,
           borderTopWidth: 0,
           elevation: 0,
@@ -42,12 +43,12 @@ function MainTabs() {
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-          
+
           if (route.name === 'Discover') {
             iconName = focused ? 'explore' : 'explore';
             return <MaterialIcons name={iconName} size={size} color={color} />;
           } else if (route.name === 'Matches') {
-            iconName = focused ?  'star' : 'star-outline';
+            iconName = focused ? 'star' : 'star-outline';
             return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
           } else if (route.name === 'Messages') {
             iconName = focused ? 'message' : 'message';
@@ -65,34 +66,34 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen 
-        name="Discover" 
-        component={HomeScreen} 
+      <Tab.Screen
+        name="Discover"
+        component={HomeScreen}
         options={{ title: 'Discover' }}
       />
-      <Tab.Screen 
-        name="Matches" 
-        component={MatchesScreen} 
+      <Tab.Screen
+        name="Matches"
+        component={MatchesScreen}
         options={{ title: 'Matches' }}
       />
-      <Tab.Screen 
-        name="Search" 
-        component={SearchScreen} 
+      <Tab.Screen
+        name="Search"
+        component={SearchScreen}
         options={{ title: 'Search' }}
       />
-      <Tab.Screen 
-        name="Messages" 
-        component={MessagesScreen} 
+      <Tab.Screen
+        name="Messages"
+        component={MessagesScreen}
         options={{ title: 'Messages' }}
       />
-      <Tab.Screen 
-        name="Likes" 
-        component={LikesScreen} 
+      <Tab.Screen
+        name="Likes"
+        component={LikesScreen}
         options={{ title: 'Likes' }}
       />
-      <Tab.Screen 
-        name="Profile" 
-        component={ProfileScreen} 
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
         options={{ title: 'Profile' }}
       />
     </Tab.Navigator>
@@ -102,13 +103,13 @@ function MainTabs() {
 const Stack = createNativeStackNavigator();
 export default function App() {
 
-useEffect(() => {
+  useEffect(() => {
     const authListener = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'TOKEN_REFRESHED' && session?.user) {
         // Update session expiration when token refreshes
         supabase
           .from('profiles')
-          .update({ 
+          .update({
             session_expires_at: new Date(session.expires_at * 1000).toISOString()
           })
           .eq('id', session.user.id);
@@ -116,14 +117,14 @@ useEffect(() => {
     });
 
     return () => {
-    if (authListener?.subscription) {
-      authListener.subscription.unsubscribe();
-    }
-  };
+      if (authListener?.subscription) {
+        authListener.subscription.unsubscribe();
+      }
+    };
 
   }, []);
 
-  
+
 
   return (
     <NavigationContainer>
@@ -134,17 +135,17 @@ useEffect(() => {
         <Stack.Screen name="ProfileSetupScreen" component={ProfileSetupScreen} />
         <Stack.Screen name="ProfileUpdateScreen" component={ProfileUpdateScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen}/>
+        <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
         <Stack.Screen name="MainTabs" component={MainTabs} />
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
-       <Stack.Screen name="ChatScreen" component={ChatScreen}/>
+        <Stack.Screen name="ChatScreen" component={ChatScreen} />
         <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
         <Stack.Screen name="MatchesScreen" component={MatchesScreen} />
         <Stack.Screen name="MessagesScreen" component={MessagesScreen} />
         <Stack.Screen name="LikesScreen" component={LikesScreen} />
         <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
         <Stack.Screen name="NewMessage" component={NewMessageScreen} />
-
+        <Stack.Screen name="Connect" component={ConnectScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

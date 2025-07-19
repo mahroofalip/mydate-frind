@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  Image, 
-  TouchableOpacity, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  Image,
+  TouchableOpacity,
   Dimensions,
   ActivityIndicator,
   TextInput
@@ -16,14 +16,20 @@ import { supabase } from '../lib/supabase';
 const { width } = Dimensions.get('window');
 
 export default function MatchesScreen({ navigation }) {
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('rich');
   const [searchActive, setSearchActive] = useState(false);
   const [matches, setMatches] = useState([]);
   const [filteredMatches, setFilteredMatches] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentUser, setCurrentUser] = useState(null);
-  
+  const matchesRef = useRef([]);
+
+  // Update ref whenever matches change
+  useEffect(() => {
+    matchesRef.current = matches;
+  }, [matches]);
+
   // Get current user
   useEffect(() => {
     const fetchUser = async () => {
@@ -35,53 +41,70 @@ export default function MatchesScreen({ navigation }) {
 
   // Fetch mutual matches from Supabase
   useEffect(() => {
+    if (!currentUser) return;
+
     const fetchMutualMatches = async () => {
-      if (!currentUser) return;
-      
       try {
         setLoading(true);
-        
+
         // Step 1: Get all users who liked the current user
         const { data: receivedLikes, error: receivedError } = await supabase
           .from('likes')
           .select('sender')
           .eq('receiver', currentUser.id);
-        
+
         if (receivedError) throw receivedError;
-        
+
         // Step 2: Get all users the current user has liked
         const { data: sentLikes, error: sentError } = await supabase
           .from('likes')
           .select('receiver')
           .eq('sender', currentUser.id);
-        
+
         if (sentError) throw sentError;
-        
+
         // Step 3: Find mutual likes (users who both like each other)
         const receivedSenders = receivedLikes.map(like => like.sender);
         const sentReceivers = sentLikes.map(like => like.receiver);
-        
-        const mutualIds = receivedSenders.filter(id => 
+
+        const mutualIds = receivedSenders.filter(id =>
           sentReceivers.includes(id)
         );
-        
+
         // Step 4: Fetch profiles of mutual matches
         if (mutualIds.length > 0) {
           const { data: mutualProfiles, error: profilesError } = await supabase
             .from('profiles')
             .select('*')
             .in('id', mutualIds);
-          
+
           if (profilesError) throw profilesError;
-          
+
+          // Filter out matches that already have chats
+          const matchesWithoutChats = await Promise.all(
+            mutualProfiles.map(async (profile) => {
+              const { data: chat, error: chatError } = await supabase
+                .from('chats')
+                .select('id')
+                .or(`and(user1.eq.${currentUser.id},user2.eq.${profile.id}),and(user1.eq.${profile.id},user2.eq.${currentUser.id})`)
+                .maybeSingle();
+
+              return chat ? null : profile;
+            })
+          );
+
+          // Filter out nulls
+          const validMatches = matchesWithoutChats.filter(match => match !== null);
+
           // Add match data
-          const matchesWithData = mutualProfiles.map(profile => ({
+          const matchesWithData = validMatches.map(profile => ({
             ...profile,
             matchPercentage: Math.floor(Math.random() * 41) + 60, // 60-100%
             lastMessage: "Say hello to start a conversation!",
-            time: "Just now"
+            time: "Just now",
+            unread: true
           }));
-          
+
           setMatches(matchesWithData);
           setFilteredMatches(matchesWithData);
         } else {
@@ -90,19 +113,125 @@ export default function MatchesScreen({ navigation }) {
         }
       } catch (error) {
         console.error('Error fetching mutual matches:', error);
-        Alert.alert('Error', 'Failed to load matches');
       } finally {
         setLoading(false);
       }
     };
 
     fetchMutualMatches();
+
+    // Real-time subscription for new likes
+    const likesChannel = supabase
+      .channel('realtime-matches')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'likes',
+      }, async (payload) => {
+        const newLike = payload.new;
+
+        // Case 1: Current user sent a like to someone
+        if (newLike.sender === currentUser.id) {
+          // Check if the receiver has liked the current user
+          const { data: reciprocalLike, error } = await supabase
+            .from('likes')
+            .select()
+            .eq('sender', newLike.receiver)
+            .eq('receiver', currentUser.id)
+            .maybeSingle();
+
+          if (reciprocalLike) {
+            addNewMatch(newLike.receiver);
+          }
+        }
+        // Case 2: Someone sent a like to the current user
+        else if (newLike.receiver === currentUser.id) {
+          // Check if the current user has liked the sender
+          const { data: reciprocalLike, error } = await supabase
+            .from('likes')
+            .select()
+            .eq('sender', currentUser.id)
+            .eq('receiver', newLike.sender)
+            .maybeSingle();
+
+          if (reciprocalLike) {
+            addNewMatch(newLike.sender);
+          }
+        }
+      })
+      .subscribe();
+
+    // Real-time subscription for chat creation
+    const chatsChannel = supabase
+      .channel('realtime-chats')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chats',
+      }, (payload) => {
+        const newChat = payload.new;
+        // If chat involves current user, remove the match
+        if (newChat.user1 === currentUser.id || newChat.user2 === currentUser.id) {
+          const otherUserId = newChat.user1 === currentUser.id
+            ? newChat.user2
+            : newChat.user1;
+
+          setMatches(prev => prev.filter(match => match.id !== otherUserId));
+          setFilteredMatches(prev => prev.filter(match => match.id !== otherUserId));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(likesChannel);
+      supabase.removeChannel(chatsChannel);
+    };
   }, [currentUser]);
+
+  // Add new match in real-time
+  const addNewMatch = async (userId) => {
+    try {
+      // Check if match already exists
+      const exists = matchesRef.current.some(match => match.id === userId);
+      if (exists) return;
+
+      // Check if chat already exists
+      const { data: chat, error: chatError } = await supabase
+        .from('chats')
+        .select('id')
+        .or(`and(user1.eq.${currentUser.id},user2.eq.${userId}),and(user1.eq.${userId},user2.eq.${currentUser.id})`)
+        .maybeSingle();
+
+      if (chat) return; // Skip if chat exists
+
+      // Fetch profile
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+
+      if (profile) {
+        const newMatch = {
+          ...profile,
+          matchPercentage: Math.floor(Math.random() * 41) + 60,
+          lastMessage: "Say hello to start a conversation!",
+          time: "Just now",
+          unread: true
+        };
+
+        setMatches(prev => [...prev, newMatch]);
+        setFilteredMatches(prev => [...prev, newMatch]);
+      }
+    } catch (error) {
+      console.error('Error adding new match:', error);
+    }
+  };
 
   // Filter matches based on search query
   useEffect(() => {
     if (searchQuery) {
-      const filtered = matches.filter(match => 
+      const filtered = matches.filter(match =>
         match.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         match.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         match.interests?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -113,24 +242,24 @@ export default function MatchesScreen({ navigation }) {
     }
   }, [searchQuery, matches]);
 
-  // Filter by active tab
-  const getFilteredMatches = () => {
-    if (activeTab === 'unread') {
-      return filteredMatches.filter(match => match.unread);
-    } else if (activeTab === 'recent') {
-      const oneWeekAgo = new Date();
-      oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
-      return filteredMatches.filter(match => 
-        new Date(match.created_at) > oneWeekAgo
+  // Sort matches based on active tab
+  const getSortedMatches = () => {
+    const matchesToSort = [...filteredMatches];
+    if (activeTab === 'rich') {
+      // Sort by highest match percentage
+      return matchesToSort.sort((a, b) => b.matchPercentage - a.matchPercentage);
+    } else {
+      // Sort by most recent (newest first)
+      return matchesToSort.sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
       );
     }
-    return filteredMatches;
   };
 
   const renderMatchItem = ({ item }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.matchCard}
-      onPress={() => navigation.navigate('Chat', { matchId: item.id })}
+      onPress={() => navigation.navigate('Connect', { matchProfile: item })}
     >
       <View style={styles.matchCardContent}>
         {item.selfie_url ? (
@@ -140,9 +269,9 @@ export default function MatchesScreen({ navigation }) {
             <MaterialCommunityIcons name="account" size={40} color="#9CA3AF" />
           </View>
         )}
-        
+
         {item.unread && <View style={styles.unreadBadge} />}
-        
+
         <View style={styles.matchInfo}>
           <View style={styles.matchHeader}>
             <Text style={styles.matchName}>{item.full_name}, {item.age}</Text>
@@ -151,13 +280,13 @@ export default function MatchesScreen({ navigation }) {
               <Text style={styles.matchPercentage}>{item.matchPercentage}%</Text>
             </View>
           </View>
-          
+
           <Text style={styles.matchLocation}>{item.location}</Text>
-          
+
           <View style={styles.lastMessageContainer}>
-            <Text 
+            <Text
               style={[
-                styles.lastMessage, 
+                styles.lastMessage,
                 item.unread && styles.unreadMessage
               ]}
               numberOfLines={1}
@@ -186,14 +315,14 @@ export default function MatchesScreen({ navigation }) {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Matches</Text>
         <View style={styles.headerIcons}>
-          <TouchableOpacity 
-            style={styles.searchButton} 
+          <TouchableOpacity
+            style={styles.searchButton}
             onPress={() => setSearchActive(!searchActive)}
           >
-            <MaterialIcons 
-              name={searchActive ? "close" : "search"} 
-              size={24} 
-              color="#FF5A5F" 
+            <MaterialIcons
+              name={searchActive ? "close" : "search"}
+              size={24}
+              color="#FF5A5F"
             />
           </TouchableOpacity>
           <TouchableOpacity>
@@ -201,7 +330,7 @@ export default function MatchesScreen({ navigation }) {
           </TouchableOpacity>
         </View>
       </View>
-      
+
       {/* Search Bar */}
       {searchActive && (
         <View style={styles.searchContainer}>
@@ -215,41 +344,32 @@ export default function MatchesScreen({ navigation }) {
           />
         </View>
       )}
-      
+
       {/* Tab Bar */}
       <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'all' && styles.activeTab]}
-          onPress={() => setActiveTab('all')}
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'rich' && styles.activeTab]}
+          onPress={() => setActiveTab('rich')}
         >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.activeTabText]}>
-            All Matches
+          <Text style={[styles.tabText, activeTab === 'rich' && styles.activeTabText]}>
+            Rich
           </Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'unread' && styles.activeTab]}
-          onPress={() => setActiveTab('unread')}
+
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'new' && styles.activeTab]}
+          onPress={() => setActiveTab('new')}
         >
-          <Text style={[styles.tabText, activeTab === 'unread' && styles.activeTabText]}>
-            Unread
-          </Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={[styles.tabButton, activeTab === 'recent' && styles.activeTab]}
-          onPress={() => setActiveTab('recent')}
-        >
-          <Text style={[styles.tabText, activeTab === 'recent' && styles.activeTabText]}>
-            Recent
+          <Text style={[styles.tabText, activeTab === 'new' && styles.activeTabText]}>
+            New
           </Text>
         </TouchableOpacity>
       </View>
-      
+
       {/* Matches List */}
-      {getFilteredMatches().length > 0 ? (
+      {getSortedMatches().length > 0 ? (
         <FlatList
-          data={getFilteredMatches()}
+          data={getSortedMatches()}
           renderItem={renderMatchItem}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
@@ -257,29 +377,32 @@ export default function MatchesScreen({ navigation }) {
         />
       ) : (
         <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons 
-            name="heart-broken" 
-            size={80} 
-            color="#FF5A5F" 
+          <MaterialCommunityIcons
+            name="heart-broken"
+            size={80}
+            color="#FF5A5F"
             style={styles.emptyIcon}
           />
           <Text style={styles.emptyTitle}>No Matches Yet</Text>
           <Text style={styles.emptyText}>
-            {searchQuery 
-              ? "No matches match your search" 
+            {searchQuery
+              ? "No matches match your search"
               : "When you and someone like each other, it's a match!"}
           </Text>
           {searchQuery ? (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.findButton}
               onPress={() => setSearchQuery('')}
             >
               <Text style={styles.findButtonText}>Clear Search</Text>
             </TouchableOpacity>
           ) : (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.findButton}
-              onPress={() => navigation.navigate('Home')}
+              onPress={() => navigation.reset({
+                index: 0,
+                routes: [{ name: 'MainTabs' }],
+              })}
             >
               <Text style={styles.findButtonText}>Start Swiping</Text>
             </TouchableOpacity>
