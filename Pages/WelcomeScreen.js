@@ -51,7 +51,7 @@ export default function WelcomeScreen({ navigation }) {
       }
 
       // Check for selfie and extra images\
-      console.log('Files in storage:', files);
+      // console.log('Files in storage:', files);
 
       const selfieExists = files?.some(file => file.name.startsWith('selfie_'));
       const extraImageExists = files?.some(file =>
@@ -69,7 +69,7 @@ export default function WelcomeScreen({ navigation }) {
         profile?.looking_for,
       ];
 
-      console.log('Profile fields:', requiredFields);
+      // console.log('Profile fields:', requiredFields);
 
 
       const isProfileComplete = requiredFields.every(field => {

@@ -54,7 +54,8 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleUpgrade = () => {
-    alert('Redirect to premium upgrade screen');
+    navigation.navigate('Premium');
+    // alert('Redirect to premium upgrade screen');
   };
 
   const handleLogout = async () => {

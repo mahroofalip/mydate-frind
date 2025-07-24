@@ -10,7 +10,8 @@ import {
   Modal,
   TextInput,
   Alert,
-  FlatList
+  FlatList,
+  SafeAreaView
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
@@ -36,6 +37,7 @@ export default function ProfileDetailScreen({ route, navigation }) {
   };
 
   return (
+    <SafeAreaView style={styles.safeArea}>
     <View style={styles.container}>
       <ScrollView>
         {/* Image Carousel */}
@@ -175,10 +177,17 @@ export default function ProfileDetailScreen({ route, navigation }) {
         </View>
       </Modal>
     </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+   safeArea: {
+        flex: 1,
+        backgroundColor: '#f0f2f5',
+        paddingTop: 40,
+        paddingBottom: 40
+    },
   container: {
     flex: 1,
     backgroundColor: '#fff',

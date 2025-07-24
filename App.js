@@ -2,7 +2,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import WelcomeScreen from './Pages/WelcomeScreen';
 import SignUpScreen from './Pages/SignUpScreen';
-//
 import LoginScreen from './Pages/LoginScreen';
 import ProfileSetupScreen from './Pages/ProfileSetupScreen';
 import HomeScreen from './Pages/Home';
@@ -12,9 +11,8 @@ import MatchesScreen from './Pages/MatchesScreen';
 import MessagesScreen from './Pages/MessagesScreen';
 import ProfileScreen from './Pages/ProfileScreen';
 import LikesScreen from './Pages/LikesScreen';
-import SearchScreen from './Pages/SearchScreen'; // Import your new SearchScreen
+import SearchScreen from './Pages/SearchScreen';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-// import { ChatScreen } from './Pages/ChatScreen';
 import ChatScreen from './Pages/ChatScreen';
 import NewMessageScreen from './Pages/NewMessageScreen';
 import EmailVerificationScreen from './Pages/EmailVerificationScreen';
@@ -23,18 +21,17 @@ import 'react-native-gesture-handler';
 import { useEffect } from 'react';
 import { supabase } from './lib/supabase';
 import ConnectScreen from './Pages/ConnectScreen';
-
-
-
+import PremiumScreen from './Pages/PremiumScreen';
+import PaymentScreen from './Pages/PaymentScreen';
+import PaymentResultScreen from './Pages/PaymentResultScreen';
 const Tab = createBottomTabNavigator();
-
 function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarActiveTintColor: '#FF5A5F', // Romantic pink/red
-        tabBarInactiveTintColor: '#888', // Subtle gray
+        tabBarActiveTintColor: '#FF5A5F',
+        tabBarInactiveTintColor: '#888',
         tabBarStyle: {
           paddingBottom: 5,
           borderTopWidth: 0,
@@ -106,7 +103,6 @@ export default function App() {
   useEffect(() => {
     const authListener = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'TOKEN_REFRESHED' && session?.user) {
-        // Update session expiration when token refreshes
         supabase
           .from('profiles')
           .update({
@@ -123,9 +119,6 @@ export default function App() {
     };
 
   }, []);
-
-
-
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
@@ -146,6 +139,9 @@ export default function App() {
         <Stack.Screen name="ProfileScreen" component={ProfileScreen} />
         <Stack.Screen name="NewMessage" component={NewMessageScreen} />
         <Stack.Screen name="Connect" component={ConnectScreen} />
+        <Stack.Screen name="Premium" component={PremiumScreen} />
+        <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

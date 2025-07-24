@@ -160,8 +160,7 @@ const handleNext = async () => {
 
     // --- 3. Validate before insert ---
     if (!selfieUploaded || !extraImageUploaded) {
-      console.log(selfieUploaded,extraImageUploaded);
-      
+      // console.log(selfieUploaded,extraImageUploaded);
        alert('Incomplete Images');
       return;
     }
