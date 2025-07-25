@@ -7,14 +7,7 @@
     "icon": "./assets/icon",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/kizzora_icon",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true
-    },
+    "ios": { "supportsTablet": true },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/kizzora_icon.png",
@@ -33,7 +26,15 @@
     },
     "plugins": [
       "expo-audio",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/kizzora_icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#ffffff"
+        }
+      ]
     ]
   }
 }
