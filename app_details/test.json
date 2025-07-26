@@ -1,0 +1,120 @@
+{
+  "event_message": {
+    "account_id": "acc_IjyjxxiOIXbj6j",
+    "contains": [
+      "payment_link",
+      "order",
+      "payment"
+    ],
+    "created_at": 1753516010,
+    "entity": "event",
+    "event": "payment_link.paid",
+    "payload": {
+      "order": {
+        "entity": {
+          "amount": 238800,
+          "amount_due": 0,
+          "amount_paid": 238800,
+          "attempts": 1,
+          "created_at": 1753516015,
+          "currency": "INR",
+          "entity": "order",
+          "id": "order_QxcQ0pnFxy7mSu",
+          "notes": [],
+          "offer_id": null,
+          "receipt": "sub_1753516008901",
+          "status": "paid"
+        }
+      },
+      "payment": {
+        "entity": {
+          "acquirer_data": {
+            "auth_code": "244477"
+          },
+          "amount": 238800,
+          "amount_refunded": 0,
+          "amount_transferred": 0,
+          "bank": null,
+          "base_amount": 238800,
+          "captured": true,
+          "card": {
+            "emi": false,
+            "entity": "card",
+            "id": "card_QxcQdIFMyG6wXr",
+            "international": false,
+            "issuer": "UTIB",
+            "last4": "5449",
+            "name": "",
+            "network": "MasterCard",
+            "sub_type": "consumer",
+            "token_iin": null,
+            "type": "credit"
+          },
+          "card_id": "card_QxcQdIFMyG6wXr",
+          "contact": "+919048874859",
+          "created_at": 1753516052,
+          "currency": "INR",
+          "description": "#QxcPuXeJ0B7ZM3",
+          "email": "alimahroof155@gmail.com",
+          "entity": "payment",
+          "error_code": null,
+          "error_description": null,
+          "error_reason": null,
+          "error_source": null,
+          "error_step": null,
+          "fee": 5636,
+          "fee_bearer": "platform",
+          "id": "pay_QxcQb01xY6cmKp",
+          "international": false,
+          "invoice_id": null,
+          "method": "card",
+          "notes": [],
+          "order_id": "order_QxcQ0pnFxy7mSu",
+          "refund_status": null,
+          "status": "captured",
+          "tax": 860,
+          "token_id": "token_QxcQeiQRuNWJN9",
+          "vpa": null,
+          "wallet": null
+        }
+      },
+      "payment_link": {
+        "entity": {
+          "accept_partial": false,
+          "amount": 238800,
+          "amount_paid": 238800,
+          "callback_method": "get",
+          "callback_url": "exp+kizzora://payment-result/Annual",
+          "cancelled_at": 0,
+          "created_at": 1753516010,
+          "currency": "INR",
+          "customer": {
+            "email": "mahroofpgtp@gmail.com",
+            "name": "mahroofpgtp"
+          },
+          "description": "Premium Annual Subscription",
+          "expire_by": 0,
+          "expired_at": 0,
+          "first_min_partial_amount": 0,
+          "id": "plink_QxcPuXeJ0B7ZM3",
+          "notes": null,
+          "notify": {
+            "email": false,
+            "sms": false,
+            "whatsapp": false
+          },
+          "order_id": "order_QxcQ0pnFxy7mSu",
+          "reference_id": "sub_1753516008901",
+          "reminder_enable": false,
+          "reminders": {},
+          "short_url": "https://rzp.io/rzp/7fveR3gI",
+          "status": "paid",
+          "updated_at": 1753516059,
+          "upi_link": false,
+          "user_id": "",
+          "whatsapp_link": false
+        }
+      }
+    }
+  }
+}

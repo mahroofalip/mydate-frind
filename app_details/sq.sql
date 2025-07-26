@@ -58,3 +58,9 @@ CREATE TABLE public.profiles (
   CONSTRAINT profiles_pkey PRIMARY KEY (id),
   CONSTRAINT profiles_id_fkey FOREIGN KEY (id) REFERENCES auth.users(id)
 );
+
+
+
+curl -L -X POST 'https://kxckrcsuqqbjiyemajvf.supabase.co/functions/v1/rapid-endpoint' \
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt4Y2tyY3N1cXFiaml5ZW1hanZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTExMjc3MDIsImV4cCI6MjA2NjcwMzcwMn0.lB_B_B5UurFCBigBog53Xk0fGT2bMvEAkbXSre6wF-8 
+Content-Type: application/json

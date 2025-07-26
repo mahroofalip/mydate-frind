@@ -8,3 +8,30 @@ export const emojis = {
   symbols: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️', '✝️', '☪️', '🕉️', '☸️', '✡️', '🔯', '🕎', '☯️', '☦️', '🛐', '⛎', '♈', '♉', '♊', '♋', '♌', '♍', '♎', '♏', '♐', '♑', '♒', '♓', '🆔', '⚛️', '🉑', '☢️', '☣️', '📴', '📳'],
   flags: ['🏳️', '🏴', '🏁', '🚩', '🏳️‍🌈', '🏴‍☠️', '🇦🇫', '🇦🇽', '🇦🇱', '🇩🇿', '🇦🇸', '🇦🇩', '🇦🇴', '🇦🇮', '🇦🇶', '🇦🇬', '🇦🇷', '🇦🇲', '🇦🇼', '🇦🇺', '🇦🇹', '🇦🇿', '🇧🇸', '🇧🇭', '🇧🇩', '🇧🇧', '🇧🇾', '🇧🇪', '🇧🇿', '🇧🇯', '🇧🇲', '🇧🇹', '🇧🇴', '🇧🇦', '🇧🇼', '🇧🇷', '🇮🇴', '🇻🇬', '🇧🇳', '🇧🇬', '🇧🇬', '🇧🇫', '🇧🇮', '🇰🇭', '🇨🇲', '🇨🇦', '🇮🇨', '🇨🇻'],
 };
+
+export const planDetails = {
+    monthly: {
+      name: "Monthly",
+      price: "₹299",
+      total: "₹299",
+      amount: 29900,
+      savings: "",
+      description: "Billed monthly, cancel anytime",
+    },
+    quarterly: {
+      name: "3 Months",
+      price: "₹249",
+      total: "₹747",
+      amount: 74700,
+      savings: "Save ₹150",
+      description: "Billed every 3 months",
+    },
+    yearly: {
+      name: "Annual",
+      price: "₹199",
+      total: "₹2388",
+      amount: 238800,
+      savings: "Save ₹1,200",
+      description: "Billed annually (best value)",
+    },
+  };

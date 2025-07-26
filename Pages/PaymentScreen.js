@@ -1,109 +1,135 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Image, Dimensions, SafeAreaView, ActivityIndicator } from 'react-native';
-import { MaterialIcons, Ionicons, FontAwesome } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useState, useEffect } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  SafeAreaView,
+  ActivityIndicator,
+  Alert,
+  Linking,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import { supabase } from "../lib/supabase";
+import { planDetails } from "../data/emojies";
 
-import { supabase } from '../lib/supabase'; // Make sure to import your supabase instance
-
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 
 export default function PaymentScreen({ navigation, route }) {
   const { plan } = route.params;
   const [isProcessing, setIsProcessing] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Plan details with actual amounts in INR
-  const planDetails = {
-    monthly: {
-      name: 'Monthly',
-      price: '₹299',
-      total: '₹299',
-      amount: 29900, // in paise (299 * 100)
-      savings: '',
-      description: 'Billed monthly, cancel anytime'
-    },
-    quarterly: {
-      name: '3 Months',
-      price: '₹249',
-      total: '₹747',
-      amount: 74700,
-      savings: 'Save ₹150',
-      description: 'Billed every 3 months'
-    },
-    yearly: {
-      name: 'Annual',
-      price: '₹199',
-      total: '₹2388',
-      amount: 238800,
-      savings: 'Save ₹1,200',
-      description: 'Billed annually (best value)'
-    }
-  };
+  
 
   const selectedPlan = planDetails[plan] || planDetails.monthly;
 
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvc, setCvc] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [rememberCard, setRememberCard] = useState(false);
-
-  // Fetch current user
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setUser(user);
     };
     fetchUser();
   }, []);
 
   const handlePayment = async () => {
-    if (!cardNumber || !expiry || !cvc || !cardholderName) {
-      alert('Please fill all payment details');
-      return;
-    }
-
     setIsProcessing(true);
 
     try {
-      
-      navigation.navigate('PaymentResult', {
-        success: true,
-        transactionId: "TXN123456789",
-        plan: selectedPlan,
-      });
+      const deepLinkUrl = `exp+kizzora://payment-result`;
+      const paymentLink = await generateRazorpayPaymentLink(
+        selectedPlan.amount,
+        user.email,
+        user.user_metadata?.full_name || user.email.split("@")[0],
+        deepLinkUrl
+      );
+      // Open the payment link
+      await Linking.openURL(paymentLink);
 
-    } catch (error) {
-      console.log('Payment error:', error);
-      navigation.navigate('PaymentResult', {
-        success: false,
-        error: error.description || 'Payment failed',
-        plan: selectedPlan,
-      });
-
-    } finally {
+      // Reset processing state
       setIsProcessing(false);
+    } catch (error) {
+      setIsProcessing(false);
+      Alert.alert(
+        "Payment Error",
+        error.message || "Failed to process payment"
+      );
+      console.error("Payment error:", error);
     }
   };
 
+  const generateRazorpayPaymentLink = async (
+    amount,
+    email,
+    name,
+    deepLinkUrl
+  ) => {
+    // 1️⃣ Create a unique reference ID
+    RAZORPAY_KEY_ID = "rzp_test_yAmKS8PpXJe6eJ";
+    RAZORPAY_KEY_SECRET = "idjxQ3RPeLeBjvFbNiSN5A2h";
 
-  const formatCardNumber = (text) => {
-    const cleaned = text.replace(/\D/g, '');
-    const formatted = cleaned.replace(/(\d{4})/g, '$1 ').trim();
-    setCardNumber(formatted);
-  };
+const prefix = user.id.replace(/-/g, "").slice(0, 8); 
+const suffix = Date.now().toString().slice(-6);  
+const referenceId = `${prefix}-${suffix}`; // ~15 chars
+    console.log("Reference ID:", referenceId);
+    console.log(referenceId.length, "Reference ID Length");
+    console.log(user.id.length, "User ID Length");
+    
+    
+    // 2️⃣ Insert pending record into Supabase
+    const { error: insertErr } = await supabase.from("payments").insert([
+      {
+        user_id: user.id,
+        plan_id: plan,
+        amount_inr: amount,
+        status: "pending",
+        reference_id: referenceId,
+      },
+    ]);
 
-  const formatExpiry = (text) => {
-    // Remove all non-digit characters
-    const cleaned = text.replace(/\D/g, '');
-    // Format as MM/YY
-    let formatted = cleaned;
-    if (cleaned.length > 2) {
-      formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4);
+    if (insertErr) {
+      throw new Error("Payment initiation failed. Please try again.");
     }
-    setExpiry(formatted);
-  };
 
+    // 3️⃣ Call Razorpay API with same referenceId
+    const requestBody = {
+      amount,
+      currency: "INR",
+      description: `Premium ${selectedPlan.name} Subscription`,
+      reference_id: referenceId,
+      customer: { name, email },
+      notify: { sms: false, email: false },
+      reminder_enable: false,
+      callback_url: deepLinkUrl,
+      callback_method: "get",
+    };
+
+    const response = await fetch("https://api.razorpay.com/v1/payment_links", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Basic ${btoa(
+          `${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`
+        )}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+    const data = await response.json();
+    if (response.status !== 200) {
+      // optionally cleanup pending record if needed
+      throw new Error(
+        data.error?.description || "Failed to create payment link"
+      );
+    }
+
+    return data.short_url;
+  };
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -124,14 +150,18 @@ export default function PaymentScreen({ navigation, route }) {
           {/* Plan Summary */}
           <View style={styles.summaryCard}>
             <View style={styles.summaryHeader}>
-              <Text style={styles.summaryTitle}>Premium {selectedPlan.name}</Text>
+              <Text style={styles.summaryTitle}>
+                Premium {selectedPlan.name}
+              </Text>
               <View style={styles.priceContainer}>
                 <Text style={styles.price}>{selectedPlan.price}</Text>
                 <Text style={styles.perMonth}>/month</Text>
               </View>
             </View>
 
-            <Text style={styles.planDescription}>{selectedPlan.description}</Text>
+            <Text style={styles.planDescription}>
+              {selectedPlan.description}
+            </Text>
 
             <View style={styles.summaryDetails}>
               <View style={styles.detailRow}>
@@ -166,115 +196,63 @@ export default function PaymentScreen({ navigation, route }) {
             </View>
           </View>
 
-          {/* Payment Form */}
+          {/* Payment Information */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Payment Method</Text>
 
-            {/* Card Number */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Card Number</Text>
-              <View style={styles.inputWithIcon}>
-                <FontAwesome name="credit-card" size={20} color="#888" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="1234 5678 9012 3456"
-                  placeholderTextColor="#888"
-                  keyboardType="numeric"
-                  value={cardNumber}
-                  onChangeText={formatCardNumber}
-                  maxLength={19}
-                />
-              </View>
+            <View style={styles.paymentInfoCard}>
+              <MaterialIcons
+                name="payment"
+                size={28}
+                color="#FF5A5F"
+                style={styles.paymentIcon}
+              />
+              <Text style={styles.paymentInfoText}>
+                You'll be redirected to Razorpay's secure payment page to
+                complete your transaction
+              </Text>
             </View>
-
-            {/* Expiry and CVC */}
-            <View style={styles.row}>
-              <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
-                <Text style={styles.inputLabel}>Expiry Date</Text>
-                <View style={styles.inputWithIcon}>
-                  <MaterialIcons name="date-range" size={20} color="#888" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="MM/YY"
-                    placeholderTextColor="#888"
-                    keyboardType="numeric"
-                    value={expiry}
-                    onChangeText={formatExpiry}
-                    maxLength={5}
-                  />
-                </View>
-              </View>
-
-              <View style={[styles.inputContainer, { flex: 1, marginLeft: 10 }]}>
-                <Text style={styles.inputLabel}>CVC</Text>
-                <View style={styles.inputWithIcon}>
-                  <MaterialIcons name="lock" size={20} color="#888" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="123"
-                    placeholderTextColor="#888"
-                    keyboardType="numeric"
-                    value={cvc}
-                    onChangeText={setCvc}
-                    maxLength={4}
-                    secureTextEntry
-                  />
-                </View>
-              </View>
-            </View>
-
-            {/* Cardholder Name */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Cardholder Name</Text>
-              <View style={styles.inputWithIcon}>
-                <MaterialIcons name="person" size={20} color="#888" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="John Smith"
-                  placeholderTextColor="#888"
-                  value={cardholderName}
-                  onChangeText={setCardholderName}
-                  autoCapitalize="words"
-                />
-              </View>
-            </View>
-
-            {/* Remember Card */}
-            <TouchableOpacity
-              style={styles.rememberContainer}
-              onPress={() => setRememberCard(!rememberCard)}
-            >
-              <View style={styles.checkbox}>
-                {rememberCard && (
-                  <MaterialIcons name="check" size={16} color="#FF5A5F" />
-                )}
-              </View>
-              <Text style={styles.rememberText}>Save card for future payments</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Payment Security */}
           <View style={styles.securitySection}>
-            <FontAwesome name="lock" size={20} color="#4CAF50" />
-            <Text style={styles.securityText}>Your payment is secure and encrypted with 256-bit SSL</Text>
+            <MaterialIcons name="security" size={20} color="#4CAF50" />
+            <Text style={styles.securityText}>
+              Secure payment processing with 256-bit SSL encryption
+            </Text>
           </View>
 
           {/* Payment Methods */}
           <View style={styles.paymentMethods}>
-            <Image source={require('../assets/visa.png')} style={styles.paymentLogo} />
-            <Image source={require('../assets/mastercard.png')} style={styles.paymentLogo} />
-            <Image source={require('../assets/amex.png')} style={styles.paymentLogo} />
-            <Image source={require('../assets/rupay.png')} style={styles.paymentLogo} />
-            <Image source={require('../assets/upi.png')} style={styles.paymentLogo} />
+            <Image
+              source={require("../assets/visa.png")}
+              style={styles.paymentLogo}
+            />
+            <Image
+              source={require("../assets/mastercard.png")}
+              style={styles.paymentLogo}
+            />
+            <Image
+              source={require("../assets/amex.png")}
+              style={styles.paymentLogo}
+            />
+            <Image
+              source={require("../assets/rupay.png")}
+              style={styles.paymentLogo}
+            />
+            <Image
+              source={require("../assets/upi.png")}
+              style={styles.paymentLogo}
+            />
           </View>
 
           {/* Spacer */}
-          <View style={{ height: 120 }} />
+          <View style={{ height: 20 }} />
         </ScrollView>
 
         {/* Pay Button */}
         <LinearGradient
-          colors={['#FF5A5F', '#FF8C94']}
+          colors={["#FF5A5F", "#FF8C94"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.buttonContainer}
@@ -288,8 +266,10 @@ export default function PaymentScreen({ navigation, route }) {
               <ActivityIndicator size="small" color="#FF5A5F" />
             ) : (
               <>
-                <Text style={styles.buttonText}>PAY {selectedPlan.total}</Text>
-                <Text style={styles.buttonSubtext}>7-day free trial included</Text>
+                <Text style={styles.buttonText}>PROCEED TO PAYMENT</Text>
+                <Text style={styles.buttonSubtext}>
+                  Secure payment with Razorpay
+                </Text>
               </>
             )}
           </TouchableOpacity>
@@ -302,27 +282,29 @@ export default function PaymentScreen({ navigation, route }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
+    backgroundColor: "#f0f2f5",
+     paddingTop: 40,
+     paddingBottom: 40
   },
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   scrollContent: {
     paddingBottom: 30,
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     paddingTop: 20,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
   },
   title: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   section: {
     margin: 20,
@@ -330,89 +312,89 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
     marginBottom: 20,
   },
   summaryCard: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 20,
     margin: 20,
     padding: 20,
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 6,
   },
   summaryHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 10,
   },
   summaryTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   planDescription: {
     fontSize: 14,
-    color: '#666',
+    color: "#666",
     marginBottom: 15,
   },
   priceContainer: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
   },
   price: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FF5A5F',
+    fontWeight: "bold",
+    color: "#FF5A5F",
   },
   perMonth: {
     fontSize: 14,
-    color: '#888',
+    color: "#888",
     marginLeft: 5,
   },
   summaryDetails: {
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
     paddingTop: 15,
   },
   detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
   },
   detailText: {
     fontSize: 15,
-    color: '#555',
+    color: "#555",
     marginLeft: 10,
   },
   divider: {
     height: 1,
-    backgroundColor: '#eee',
+    backgroundColor: "#eee",
     marginVertical: 15,
   },
   totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   totalLabel: {
     fontSize: 17,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
   },
   totalAmount: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF5A5F',
+    fontWeight: "bold",
+    color: "#FF5A5F",
   },
   savingsBadge: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#FF5A5F20',
+    alignSelf: "flex-end",
+    backgroundColor: "#FF5A5F20",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 10,
@@ -420,63 +402,16 @@ const styles = StyleSheet.create({
   },
   savingsText: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#FF5A5F',
-  },
-  inputContainer: {
-    marginBottom: 20,
-  },
-  inputLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#555',
-    marginBottom: 8,
-  },
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    borderRadius: 15,
-    paddingHorizontal: 15,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  input: {
-    flex: 1,
-    height: 50,
-    fontSize: 16,
-    color: '#333',
-  },
-  row: {
-    flexDirection: 'row',
-  },
-  rememberContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  checkbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#FF5A5F',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  rememberText: {
-    fontSize: 15,
-    color: '#555',
+    fontWeight: "bold",
+    color: "#FF5A5F",
   },
   securitySection: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
     marginTop: 10,
     padding: 15,
-    backgroundColor: '#f0f0f0',
+    backgroundColor: "#f0f0f0",
     borderRadius: 15,
     marginHorizontal: 20,
     marginBottom: 20,
@@ -484,25 +419,25 @@ const styles = StyleSheet.create({
   securityText: {
     marginLeft: 10,
     fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
+    color: "#666",
+    textAlign: "center",
   },
   paymentMethods: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    flexWrap: "wrap",
     marginHorizontal: 20,
     marginTop: 10,
   },
   paymentLogo: {
     width: 50,
     height: 30,
-    resizeMode: 'contain',
+    resizeMode: "contain",
     margin: 5,
   },
   buttonContainer: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -512,30 +447,48 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.1,
     shadowRadius: 10,
   },
   payButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     paddingVertical: 18,
     borderRadius: 15,
-    alignItems: 'center',
+    alignItems: "center",
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
   },
   buttonText: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FF5A5F',
+    fontWeight: "bold",
+    color: "#FF5A5F",
     marginBottom: 5,
   },
   buttonSubtext: {
     fontSize: 14,
-    color: '#888',
+    color: "#888",
+  },
+  paymentInfoCard: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 15,
+    padding: 20,
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  paymentIcon: {
+    marginRight: 15,
+  },
+  paymentInfoText: {
+    flex: 1,
+    fontSize: 16,
+    color: "#555",
+    lineHeight: 22,
   },
 });

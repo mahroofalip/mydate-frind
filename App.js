@@ -1,30 +1,39 @@
-import { NavigationContainer } from '@react-navigation/native';
+import 'react-native-gesture-handler';
+import React, { useEffect } from 'react';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Linking } from 'react-native';
+
 import WelcomeScreen from './Pages/WelcomeScreen';
 import SignUpScreen from './Pages/SignUpScreen';
 import LoginScreen from './Pages/LoginScreen';
 import ProfileSetupScreen from './Pages/ProfileSetupScreen';
 import HomeScreen from './Pages/Home';
 import ProfileDetailScreen from './Pages/ProfileDetailScreen';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import MatchesScreen from './Pages/MatchesScreen';
 import MessagesScreen from './Pages/MessagesScreen';
 import ProfileScreen from './Pages/ProfileScreen';
 import LikesScreen from './Pages/LikesScreen';
 import SearchScreen from './Pages/SearchScreen';
-import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import ChatScreen from './Pages/ChatScreen';
 import NewMessageScreen from './Pages/NewMessageScreen';
 import EmailVerificationScreen from './Pages/EmailVerificationScreen';
 import ProfileUpdateScreen from './Pages/ProfileUpdateScreen';
-import 'react-native-gesture-handler';
-import { useEffect } from 'react';
-import { supabase } from './lib/supabase';
 import ConnectScreen from './Pages/ConnectScreen';
 import PremiumScreen from './Pages/PremiumScreen';
 import PaymentScreen from './Pages/PaymentScreen';
 import PaymentResultScreen from './Pages/PaymentResultScreen';
+
+import { supabase } from './lib/supabase';
+import { planDetails } from './data/emojies';
+
 const Tab = createBottomTabNavigator();
+const Stack = createNativeStackNavigator();
+
+
+
 function MainTabs() {
   return (
     <Tab.Navigator
@@ -36,11 +45,10 @@ function MainTabs() {
           paddingBottom: 5,
           borderTopWidth: 0,
           elevation: 0,
-          backgroundColor: '#fff'
+          backgroundColor: '#fff',
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
-
           if (route.name === 'Discover') {
             iconName = focused ? 'explore' : 'explore';
             return <MaterialIcons name={iconName} size={size} color={color} />;
@@ -63,64 +71,53 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen
-        name="Discover"
-        component={HomeScreen}
-        options={{ title: 'Discover' }}
-      />
-      <Tab.Screen
-        name="Matches"
-        component={MatchesScreen}
-        options={{ title: 'Matches' }}
-      />
-      <Tab.Screen
-        name="Search"
-        component={SearchScreen}
-        options={{ title: 'Search' }}
-      />
-      <Tab.Screen
-        name="Messages"
-        component={MessagesScreen}
-        options={{ title: 'Messages' }}
-      />
-      <Tab.Screen
-        name="Likes"
-        component={LikesScreen}
-        options={{ title: 'Likes' }}
-      />
-      <Tab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ title: 'Profile' }}
-      />
+      <Tab.Screen name="Discover" component={HomeScreen} />
+      <Tab.Screen name="Matches" component={MatchesScreen} />
+      <Tab.Screen name="Search" component={SearchScreen} />
+      <Tab.Screen name="Messages" component={MessagesScreen} />
+      <Tab.Screen name="Likes" component={LikesScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
 
-const Stack = createNativeStackNavigator();
 export default function App() {
+  const navigationRef = useNavigationContainerRef();
 
+  // ✅ Deep Link Handler
   useEffect(() => {
-    const authListener = supabase.auth.onAuthStateChange((event, session) => {
+    const handleDeepLink = (event) => {
+      if (event.url.includes('exp+kizzora://payment-result')) {
+        navigationRef.navigate('PaymentResult');
+      }
+    };
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    return () => {
+      subscription.remove();
+    };
+  }, [navigationRef]);
+
+  // ✅ Supabase token refresh handling
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'TOKEN_REFRESHED' && session?.user) {
         supabase
           .from('profiles')
           .update({
-            session_expires_at: new Date(session.expires_at * 1000).toISOString()
+            session_expires_at: new Date(session.expires_at * 1000).toISOString(),
           })
           .eq('id', session.user.id);
       }
     });
 
     return () => {
-      if (authListener?.subscription) {
-        authListener.subscription.unsubscribe();
-      }
+      authListener.subscription.unsubscribe();
     };
-
   }, []);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator initialRouteName="Welcome" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Welcome" component={WelcomeScreen} />
         <Stack.Screen name="SignUp" component={SignUpScreen} />
