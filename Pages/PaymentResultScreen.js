@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView, ScrollView } fr
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons } from '@expo/vector-icons';
 
-export default function PaymentResultScreen({ navigation }) {a
+export default function PaymentResultScreen({ navigation }) {
   // Premium features list
   const premiumFeatures = [
     'See who liked your profile',
