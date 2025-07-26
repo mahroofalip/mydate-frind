@@ -46,7 +46,7 @@ export default function PaymentResultScreen({ navigation }) {
         
         <TouchableOpacity 
           style={styles.exploreButton}
-          onPress={() => navigation.navigate('Home')}
+          onPress={() => navigation.navigate('MainTabs')}
         >
           <Text style={styles.buttonText}>
             Explore Premium Features
