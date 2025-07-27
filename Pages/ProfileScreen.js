@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -10,24 +10,29 @@ import {
   Modal,
   TextInput,
   Alert,
-} from 'react-native';
-import { MaterialIcons, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
-import { supabase } from '../lib/supabase';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+} from "react-native";
+import {
+  MaterialIcons,
+  MaterialCommunityIcons,
+  Ionicons,
+} from "@expo/vector-icons";
+import { supabase } from "../lib/supabase";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function ProfileScreen({ navigation }) {
-  const [name, setName] = useState('');
-  const [age, setAge] = useState('');
-  const [location, setLocation] = useState('');
-  const [bio, setBio] = useState('');
-  const [education, setEducation] = useState('');
-  const [occupation, setOccupation] = useState('');
-  const [gender, setGender] = useState('');
-  const [lookingFor, setLookingFor] = useState('');
+  const [name, setName] = useState("");
+  const [age, setAge] = useState("");
+  const [location, setLocation] = useState("");
+  const [bio, setBio] = useState("");
+  const [education, setEducation] = useState("");
+  const [occupation, setOccupation] = useState("");
+  const [gender, setGender] = useState("");
+  const [lookingFor, setLookingFor] = useState("");
   const [interests, setInterests] = useState([]);
   const [extraImages, setExtraImages] = useState([]);
   const [profileUrl, setProfileUrl] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isPremium, setIsPremium] = useState(false);
 
   const [settings, setSettings] = useState({
     notifications: true,
@@ -37,15 +42,15 @@ export default function ProfileScreen({ navigation }) {
   });
 
   const [editModalVisible, setEditModalVisible] = useState(false);
-  const [editField, setEditField] = useState('');
-  const [editValue, setEditValue] = useState('');
+  const [editField, setEditField] = useState("");
+  const [editValue, setEditValue] = useState("");
 
   const toggleSetting = (setting) => {
     setSettings({ ...settings, [setting]: !settings[setting] });
   };
 
   const handleEdit = () => {
-    navigation.navigate('ProfileUpdateScreen');
+    navigation.navigate("ProfileUpdateScreen");
   };
 
   const saveEdit = () => {
@@ -54,78 +59,86 @@ export default function ProfileScreen({ navigation }) {
   };
 
   const handleUpgrade = () => {
-    navigation.navigate('Premium');
+    navigation.navigate("Premium");
     // alert('Redirect to premium upgrade screen');
   };
 
   const handleLogout = async () => {
     try {
       // Get current user before signing out
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
       if (user) {
         // Update logout time in profiles table
         await supabase
-          .from('profiles')
+          .from("profiles")
           .update({
             last_logout_at: new Date().toISOString(),
-            session_expires_at: null  // Clear session expiration
+            session_expires_at: null, // Clear session expiration
           })
-          .eq('id', user.id);
+          .eq("id", user.id);
       }
 
       // Now sign out from auth
       const { error } = await supabase.auth.signOut();
 
       if (error) {
-        console.error('Logout failed:', error.message);
-        Alert.alert('Error', 'Failed to log out. Please try again.');
+        console.error("Logout failed:", error.message);
+        Alert.alert("Error", "Failed to log out. Please try again.");
       } else {
         // Clear any stored user data
-        await AsyncStorage.removeItem('@user');
+        await AsyncStorage.removeItem("@user");
 
         // Navigate to welcome screen
         navigation.reset({
           index: 0,
-          routes: [{ name: 'Welcome' }],
+          routes: [{ name: "Welcome" }],
         });
       }
     } catch (err) {
-      console.error('Logout error:', err);
-      Alert.alert('Error', 'An unexpected error occurred during logout');
+      console.error("Logout error:", err);
+      Alert.alert("Error", "An unexpected error occurred during logout");
     }
   };
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const { data: { user }, error: userErr } = await supabase.auth.getUser();
-        if (userErr || !user) throw new Error('User not authenticated');
+        const {
+          data: { user },
+          error: userErr,
+        } = await supabase.auth.getUser();
+        if (userErr || !user) throw new Error("User not authenticated");
 
         const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
+          .from("profiles")
+          .select("*")
+          .eq("id", user.id)
           .single();
 
         if (error) throw error;
 
         if (profile) {
-
-          setName(profile.full_name || '');
-          setBio(profile.bio || '');
-          setAge(profile.age || '');
-          setGender(profile.gender || '');
-          setLocation(profile.location || '');
-          setOccupation(profile.occupation || '');
-          setEducation(profile.education || '');
-          setInterests(profile.interests ? profile.interests.split(',') : []);
-          setLookingFor(profile.looking_for || '');
-          setExtraImages(profile.extra_images ? profile.extra_images.split(',') : []);
+          console.log("Profile fetched:", profile);
+          setIsPremium(profile.is_premium || false); // Add this line
+          setName(profile.full_name || "");
+          setBio(profile.bio || "");
+          setAge(profile.age || "");
+          setGender(profile.gender || "");
+          setLocation(profile.location || "");
+          setOccupation(profile.occupation || "");
+          setEducation(profile.education || "");
+          setInterests(profile.interests ? profile.interests.split(",") : []);
+          setLookingFor(profile.looking_for || "");
+          setExtraImages(
+            profile.extra_images ? profile.extra_images.split(",") : []
+          );
           setProfileUrl(profile.extra_images ? profile.selfie_url : null);
         }
       } catch (err) {
-        Alert.alert('Error', err.message);
+        Alert.alert("Error", err.message);
       } finally {
         setLoading(false);
       }
@@ -145,7 +158,7 @@ export default function ProfileScreen({ navigation }) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Home')}>
+        <TouchableOpacity onPress={() => navigation.navigate("Home")}>
           <MaterialIcons name="arrow-back" size={24} color="#FF5A5F" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Profile</Text>
@@ -158,10 +171,10 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.profileSection}>
           <View style={styles.profileHeader}>
             <Image
-              source={{ uri: profileUrl || 'https://via.placeholder.com/150' }}
+              source={{ uri: profileUrl || "https://via.placeholder.com/150" }}
               style={styles.profileImage}
             />
-            <View style={styles.profileInfo}>
+            {/* <View style={styles.profileInfo}>
               <View style={styles.nameContainer}>
                 <Text style={styles.name}>{name}, {age}</Text>
               </View>
@@ -173,6 +186,40 @@ export default function ProfileScreen({ navigation }) {
                 <MaterialCommunityIcons name="crown" size={16} color="#FFD700" />
                 <Text style={styles.upgradeText}>Upgrade to Premium</Text>
               </TouchableOpacity>
+            </View> */}
+            <View style={styles.profileInfo}>
+              <View style={styles.nameContainer}>
+                <Text style={styles.name}>
+                  {name}, {age}
+                </Text>
+                {/* Add premium badge if user is premium */}
+                {isPremium && (
+                  <MaterialCommunityIcons
+                    name="crown"
+                    size={20}
+                    color="#FFD700"
+                    style={styles.premiumBadge}
+                  />
+                )}
+              </View>
+              <View style={styles.locationContainer}>
+                <MaterialIcons name="location-on" size={16} color="#FF5A5F" />
+                <Text style={styles.location}>{location}</Text>
+              </View>
+              {/* Conditionally render upgrade button */}
+              {!isPremium && (
+                <TouchableOpacity
+                  style={styles.upgradeButton}
+                  onPress={handleUpgrade}
+                >
+                  <MaterialCommunityIcons
+                    name="crown"
+                    size={16}
+                    color="#FFD700"
+                  />
+                  <Text style={styles.upgradeText}>Upgrade to Premium</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -201,7 +248,11 @@ export default function ProfileScreen({ navigation }) {
               <Text style={styles.editLink}>Edit</Text>
             </TouchableOpacity>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.photosContainer}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.photosContainer}
+          >
             {extraImages.map((photo, index) => (
               <TouchableOpacity key={index} style={styles.photoItem}>
                 <Image source={{ uri: photo }} style={styles.photo} />
@@ -239,7 +290,10 @@ export default function ProfileScreen({ navigation }) {
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('PrivacySettings')}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => navigation.navigate("PrivacySettings")}
+          >
             <MaterialIcons name="privacy-tip" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>Privacy Settings</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
@@ -251,13 +305,16 @@ export default function ProfileScreen({ navigation }) {
             <View style={styles.switchContainer}>
               <Switch
                 value={settings.notifications}
-                onValueChange={() => toggleSetting('notifications')}
+                onValueChange={() => toggleSetting("notifications")}
                 trackColor={{ false: "#767577", true: "#FF5A5F" }}
               />
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('AppSettings')}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => navigation.navigate("AppSettings")}
+          >
             <Ionicons name="settings" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>App Settings</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
@@ -267,24 +324,32 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
 
-          <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('HelpCenter')}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => navigation.navigate("HelpCenter")}
+          >
             <MaterialIcons name="help" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>Help Center</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('ContactSupport')}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => navigation.navigate("ContactSupport")}
+          >
             <MaterialIcons name="contact-support" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>Contact Support</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem} onPress={() => navigation.navigate('SafetyTips')}>
+          <TouchableOpacity
+            style={styles.settingItem}
+            onPress={() => navigation.navigate("SafetyTips")}
+          >
             <MaterialIcons name="security" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>Safety Tips</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
-          
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
@@ -302,34 +367,41 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
+  premiumBadge: {
+  marginLeft: 8,
+  backgroundColor: '#FFD70020',
+  borderRadius: 50,
+  padding: 3,
+},
+
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 16,
     paddingTop: 50,
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: "#eee",
   },
   headerTitle: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   scrollContainer: {
     flex: 1,
     paddingBottom: 20,
   },
   profileSection: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
     marginBottom: 16,
   },
   profileHeader: {
-    flexDirection: 'row',
+    flexDirection: "row",
     marginBottom: 20,
   },
   profileImage: {
@@ -337,103 +409,103 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: '#FF5A5F',
+    borderColor: "#FF5A5F",
   },
   profileInfo: {
     flex: 1,
     marginLeft: 20,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   nameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 5,
   },
   name: {
     fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   verifiedIcon: {
     marginLeft: 5,
   },
   locationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 10,
   },
   location: {
     fontSize: 16,
-    color: '#888',
+    color: "#888",
     marginLeft: 5,
   },
   upgradeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#333',
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#333",
     borderRadius: 20,
     paddingVertical: 5,
     paddingHorizontal: 12,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginTop: 5,
   },
   upgradeText: {
-    color: '#FFD700',
+    color: "#FFD700",
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
     marginLeft: 5,
   },
   bio: {
     fontSize: 16,
-    color: '#555',
+    color: "#555",
     lineHeight: 24,
     marginBottom: 20,
   },
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: "#eee",
     paddingTop: 20,
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statNumber: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FF5A5F',
+    fontWeight: "bold",
+    color: "#FF5A5F",
   },
   statLabel: {
     fontSize: 14,
-    color: '#888',
+    color: "#888",
   },
   section: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 20,
     marginBottom: 16,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+    fontWeight: "bold",
+    color: "#333",
   },
   editLink: {
-    color: '#FF5A5F',
+    color: "#FF5A5F",
     fontSize: 16,
   },
   photosContainer: {
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   photoItem: {
     marginRight: 10,
-    position: 'relative',
+    position: "relative",
   },
   photo: {
     width: 100,
@@ -441,33 +513,33 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   photoBadge: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 5,
     left: 5,
-    backgroundColor: '#FF5A5F',
-    color: 'white',
+    backgroundColor: "#FF5A5F",
+    color: "white",
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 10,
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   addPhoto: {
     width: 100,
     height: 100,
     borderRadius: 10,
     borderWidth: 2,
-    borderColor: '#FF5A5F',
-    borderStyle: 'dashed',
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: "#FF5A5F",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
   },
   interestsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
   },
   interestTag: {
-    backgroundColor: '#FF5A5F20',
+    backgroundColor: "#FF5A5F20",
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -475,75 +547,75 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   interestText: {
-    color: '#FF5A5F',
-    fontWeight: '500',
+    color: "#FF5A5F",
+    fontWeight: "500",
   },
   settingItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
   settingText: {
     flex: 1,
     fontSize: 16,
-    color: '#555',
+    color: "#555",
     marginLeft: 15,
   },
   switchContainer: {
     marginRight: 5,
   },
   logoutButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 18,
     marginHorizontal: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 10,
     borderWidth: 1,
-    borderColor: '#FF5A5F',
+    borderColor: "#FF5A5F",
   },
   logoutText: {
-    color: '#FF5A5F',
+    color: "#FF5A5F",
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   deleteButton: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     padding: 18,
     marginHorizontal: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: 10,
     marginBottom: 20,
   },
   deleteText: {
-    color: '#ff4444',
+    color: "#ff4444",
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
-    backgroundColor: 'white',
-    width: '90%',
+    backgroundColor: "white",
+    width: "90%",
     borderRadius: 16,
     padding: 20,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 15,
-    color: '#333',
+    color: "#333",
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: "#ddd",
     borderRadius: 10,
     padding: 15,
     fontSize: 16,
@@ -551,26 +623,26 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   modalButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
+    flexDirection: "row",
+    justifyContent: "flex-end",
   },
   cancelButton: {
     padding: 10,
     marginRight: 10,
   },
   cancelText: {
-    color: '#888',
+    color: "#888",
     fontSize: 16,
   },
   saveButton: {
-    backgroundColor: '#FF5A5F',
+    backgroundColor: "#FF5A5F",
     borderRadius: 10,
     padding: 10,
     paddingHorizontal: 20,
   },
   saveText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: "white",
+    fontWeight: "bold",
     fontSize: 16,
   },
 });
