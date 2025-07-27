@@ -22,15 +22,15 @@ const { width } = Dimensions.get('window');
 
 export default function ProfileSetupScreen({ navigation }) {
   // State variables
-  const [name, setName] = useState('John Doe');
-  const [bio, setBio] = useState('Hello! I am a software developer who loves to explore new technologies and meet new people.');
-  const [age, setAge] = useState('25');
-  const [gender, setGender] = useState('Male');
-  const [location, setLocation] = useState('Manjeri');
-  const [occupation, setOccupation] = useState('software devloper');
-  const [education, setEducation] = useState('BA');
-  const [interests, setInterests] = useState('Software Development, Music, Traveling');
-  const [lookingFor, setLookingFor] = useState('Dating');
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [location, setLocation] = useState('');
+  const [occupation, setOccupation] = useState('');
+  const [education, setEducation] = useState('');
+  const [interests, setInterests] = useState('');
+  const [lookingFor, setLookingFor] = useState('');
   const [profilePic, setProfilePic] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(false);
