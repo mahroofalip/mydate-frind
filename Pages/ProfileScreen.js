@@ -121,7 +121,6 @@ export default function ProfileScreen({ navigation }) {
         if (error) throw error;
 
         if (profile) {
-          console.log("Profile fetched:", profile);
           setIsPremium(profile.is_premium || false); // Add this line
           setName(profile.full_name || "");
           setBio(profile.bio || "");
