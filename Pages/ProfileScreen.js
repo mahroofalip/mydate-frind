@@ -86,7 +86,7 @@ export default function ProfileScreen({ navigation }) {
 
       if (error) {
         console.error("Logout failed:", error.message);
-        Alert.alert("Error", "Failed to log out. Please try again.");
+        Alert.alert("Error7", "Failed to log out. Please try again.");
       } else {
         // Clear any stored user data
         await AsyncStorage.removeItem("@user");
@@ -99,7 +99,7 @@ export default function ProfileScreen({ navigation }) {
       }
     } catch (err) {
       console.error("Logout error:", err);
-      Alert.alert("Error", "An unexpected error occurred during logout");
+      Alert.alert("Error8", "An unexpected error occurred during logout");
     }
   };
 
@@ -137,7 +137,7 @@ export default function ProfileScreen({ navigation }) {
           setProfileUrl(profile.extra_images ? profile.selfie_url : null);
         }
       } catch (err) {
-        Alert.alert("Error", err.message);
+        Alert.alert("Error9", err.message);
       } finally {
         setLoading(false);
       }

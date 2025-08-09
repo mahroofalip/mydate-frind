@@ -111,6 +111,7 @@ const sendSupabaseMessage = async (chatId, senderId, content) => {
 };
 
 export default function HomeScreen({ navigation }) {
+  const [ignoredProfiles, setIgnoredProfiles] = useState(new Set());
   const [profiles, setProfiles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -121,6 +122,7 @@ export default function HomeScreen({ navigation }) {
   const [likedProfiles, setLikedProfiles] = useState(new Set());
   const listRef = useRef(null);
 
+  // Fetch current user
   useEffect(() => {
     const fetchUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -131,16 +133,72 @@ export default function HomeScreen({ navigation }) {
     fetchUser();
   }, []);
 
+  // Fetch ignored profiles
+  useEffect(() => {
+    const fetchIgnoredProfiles = async () => {
+      if (!currentUser) return;
+      
+      try {
+        const { data: ignores, error } = await supabase
+          .from('ignores')
+          .select('ignored_user_id')
+          .eq('user_id', currentUser.id);
+          
+        if (error) throw error;
+        
+        const ignoredIds = new Set(ignores.map(ignore => ignore.ignored_user_id));
+        setIgnoredProfiles(ignoredIds);
+      } catch (error) {
+        console.error('Failed to fetch ignores:', error);
+      }
+    };
+    
+    fetchIgnoredProfiles();
+  }, [currentUser]);
+
+  // Fetch user likes
+  useEffect(() => {
+    const fetchLikes = async () => {
+      if (!currentUser) return;
+      
+      try {
+        const { data: likes, error } = await supabase
+          .from('likes')
+          .select('receiver')
+          .eq('sender', currentUser.id);
+          
+        if (error) throw error;
+        
+        // Create Set of liked profile IDs
+        const likedIds = new Set(likes.map(like => like.receiver));
+        setLikedProfiles(likedIds);
+      } catch (error) {
+        console.error('Failed to fetch likes:', error);
+      }
+    };
+    
+    fetchLikes();
+  }, [currentUser]);
+
+  // Fetch profiles
   useEffect(() => {
     const fetchProfiles = async () => {
       try {
         if (!currentUser) return;
         
-        // Fetch profiles excluding current user with online status columns
-        const { data, error } = await supabase
+        // Start building the query
+        let query = supabase
           .from('profiles')
           .select('*, last_login_at, last_logout_at, session_expires_at')
           .neq('id', currentUser.id);
+
+        // Only add not.in filter if we have ignored profiles
+        if (ignoredProfiles.size > 0) {
+          const ignoredIds = Array.from(ignoredProfiles);
+          query = query.not('id', 'in', `(${ignoredIds.join(',')})`);
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
 
@@ -155,8 +213,8 @@ export default function HomeScreen({ navigation }) {
             id: profile.id,
             name: profile.full_name,
             age: profile.age,
-            image: profile.selfie_url || '', // First image as main
-            extraImages: allImages, // Remaining as extraImages
+            image: profile.selfie_url || 'https://via.placeholder.com/300',
+            extraImages: allImages,
             place: profile.location,
             distance: 'Nearby',
             bio: profile.bio,
@@ -200,41 +258,46 @@ export default function HomeScreen({ navigation }) {
         profileSubscription.unsubscribe();
       }
     };
+  }, [currentUser, ignoredProfiles]);
 
-  }, [currentUser]);
-
-  useEffect(() => {
-    const fetchLikes = async () => {
-      if (!currentUser) return;
-      
-      try {
-        const { data: likes, error } = await supabase
-          .from('likes')
-          .select('receiver')
-          .eq('sender', currentUser.id);
-          
-        if (error) throw error;
-        
-        // Create Set of liked profile IDs
-        const likedIds = new Set(likes.map(like => like.receiver));
-        setLikedProfiles(likedIds);
-      } catch (error) {
-        console.error('Failed to fetch likes:', error);
-      }
-    };
-    
-    fetchLikes();
-  }, [currentUser]);
-
-  const toggleLike = async (profile) => {
+  // Handle ignore action
+  const handleIgnore = async (profile) => {
     if (!currentUser) return;
     
+    try {
+      // Add to ignore list
+      const { error } = await supabase
+        .from('ignores')
+        .insert([{ 
+          user_id: currentUser.id, 
+          ignored_user_id: profile.id 
+        }]);
+
+      if (error) throw error;
+      
+      // Update UI immediately
+      setIgnoredProfiles(prev => new Set(prev).add(profile.id));
+      setProfiles(prev => prev.filter(p => p.id !== profile.id));
+    } catch (error) {
+      Alert.alert("Error", error.message || "Failed to ignore profile");
+    }
+  };
+
+  // Filter out ignored profiles
+  const filteredProfiles = profiles.filter(
+    profile => !ignoredProfiles.has(profile.id)
+  );
+
+  // Toggle like status with real-time updates
+  const toggleLike = async (profile) => {
+    if (!currentUser) return;
+  
     const isLiked = likedProfiles.has(profile.id);
     const newLikedProfiles = new Set(likedProfiles);
     
     try {
       if (isLiked) {
-        // Unlike: remove from database and state
+        // Unlike: remove from database
         const { error } = await supabase
           .from('likes')
           .delete()
@@ -245,18 +308,18 @@ export default function HomeScreen({ navigation }) {
         
         newLikedProfiles.delete(profile.id);
       } else {
-        // Like: add to database and state
+        // Like: add to database
         const { error } = await supabase
           .from('likes')
           .insert([{ 
             sender: currentUser.id, 
-            receiver: profile.id 
+            receiver: profile.id
           }]);
 
         if (error) throw error;
         
         newLikedProfiles.add(profile.id);
-
+        
         // Check for reciprocal like (match)
         const { data: reciprocalLike, error: reciprocalError } = await supabase
           .from('likes')
@@ -298,12 +361,14 @@ export default function HomeScreen({ navigation }) {
         }
       }
       
+      // Update UI immediately
       setLikedProfiles(newLikedProfiles);
     } catch (error) {
       Alert.alert("Error", error.message || `Failed to ${isLiked ? 'unlike' : 'like'}`);
     }
   };
 
+  // Send message handler
   const handleSendMessage = async () => {
     if (!message.trim() || !currentUser || !selected) {
       Alert.alert('Error', 'Please enter a message');
@@ -337,13 +402,15 @@ export default function HomeScreen({ navigation }) {
     }
   };
 
+  // Render profile card
   const renderItem = ({ item }) => {
     const onlineStatus = getOnlineStatusStyle(item);
     const isLiked = likedProfiles.has(item.id);
+    
     return (
       <View style={styles.cardContainer}>
         <ImageBackground
-          source={{ uri: item.image || 'https://via.placeholder.com/300' }}
+          source={{ uri: item.image }}
           style={styles.image}
           resizeMode="cover"
         >
@@ -363,7 +430,10 @@ export default function HomeScreen({ navigation }) {
                 color={isLiked ? "#FF5A5F" : "white"} 
               />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={() => alert('Passed!')}>
+            <TouchableOpacity 
+              style={styles.iconButton} 
+              onPress={() => handleIgnore(item)}
+            >
               <AntDesign name="close" size={28} color="white" />
             </TouchableOpacity>
           </View>
@@ -385,19 +455,18 @@ export default function HomeScreen({ navigation }) {
 
             <Text style={styles.bio}>{item.bio}</Text>
             <View style={styles.tagsRow}>
-              {item.interests.map((tag, index) => (
+              {item?.interests?.map((tag, index) => (
                 <View key={index} style={styles.tag}>
                   <Text style={styles.tagText}>{tag}</Text>
                 </View>
               ))}
             </View>
-             <View style={styles.actions}>
+            <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.viewProfileButton]}
                 onPress={() => navigation.navigate('ProfileDetail', { 
                   profile: {
                     ...item,
-                    // Pass both image and extraImages explicitly
                     image: item.image,
                     extraImages: item.extraImages
                   }
@@ -433,12 +502,12 @@ export default function HomeScreen({ navigation }) {
     );
   }
 
-  if (profiles.length === 0) {
+  if (filteredProfiles.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <MaterialIcons name="group-off" size={80} color="#888" />
         <Text style={styles.emptyText}>No profiles found</Text>
-        <Text style={styles.emptySubtext}>Try again later or expand your search</Text>
+        <Text style={styles.emptySubtext}>Try adjusting your preferences or search radius</Text>
       </View>
     );
   }
@@ -447,7 +516,7 @@ export default function HomeScreen({ navigation }) {
     <View style={styles.container}>
       <FlatList
         ref={listRef}
-        data={profiles}
+        data={filteredProfiles}
         keyExtractor={item => item.id}
         horizontal
         pagingEnabled
@@ -459,7 +528,6 @@ export default function HomeScreen({ navigation }) {
           index,
         })}
       />
-
       <Modal
         visible={modalVisible}
         animationType="slide"

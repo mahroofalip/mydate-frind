@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -12,14 +12,32 @@ import {
 } from 'react-native';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
+import { useFocusEffect } from '@react-navigation/native';
+import { useIsFocused } from '@react-navigation/native';
 
-const LikesScreen = ({ navigation }) => {
+const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
+  const isFocused = useIsFocused();
   const [activeTab, setActiveTab] = useState('all');
   const [fadeAnim] = useState(new Animated.Value(0));
   const [likesData, setLikesData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
-const [isPremium, setIsPremium] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
+  const [ignoredProfiles, setIgnoredProfiles] = useState(new Set());
+  const [newLikesCount, setNewLikesCount] = useState(0);
+
+  // Handle focus events for badge reset
+  useFocusEffect(
+    useCallback(() => {
+      onFocus?.();
+      resetBadge?.();
+      setNewLikesCount(0);
+      
+      return () => {
+        onBlur?.();
+      };
+    }, [onFocus, onBlur, resetBadge])
+  );
 
   // Fade in animation
   useEffect(() => {
@@ -30,116 +48,188 @@ const [isPremium, setIsPremium] = useState(false);
     }).start();
   }, []);
 
+  // Fetch current user
   useEffect(() => {
-    // Update fetchUser to get premium status
     const fetchUser = async () => {
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
+      const { data: { user }, error } = await supabase.auth.getUser();
       if (error) {
         Alert.alert("Error", "Failed to fetch user");
         setLoading(false);
         return;
       }
-
-      // Fetch premium status from profiles table
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("is_premium")
-        .eq("id", user.id)
-        .single();
-
-      if (profileError) {
-        console.error("Failed to fetch premium status:", profileError);
-      } else {
-        
-        
-        setIsPremium(profile.is_premium || false);
-      }
-
       setCurrentUser(user);
     };
-
     fetchUser();
   }, []);
 
+  // Fetch premium status
   useEffect(() => {
-    const fetchLikes = async () => {
-      if (!currentUser) return;
+    if (!currentUser) return;
 
+    const fetchPremiumStatus = async () => {
       try {
-        // Fetch likes where current user is the receiver
-        const { data: receivedLikes, error: receivedError } = await supabase
-          .from("likes")
-          .select(
-            `
-            id,
-            sender:profiles!likes_sender_fkey (
-              id,
-              full_name,
-              age,
-              location,
-              extra_images,
-              is_premium,
-              created_at
-            ),
-            liked_at
-          `
-          )
-          .eq("receiver", currentUser.id)
-          .order("liked_at", { ascending: false });
-
-        if (receivedError) throw receivedError;
-
-        // Fetch likes sent by current user to check for mutual likes
-        const { data: sentLikes, error: sentError } = await supabase
-          .from("likes")
-          .select("receiver")
-          .eq("sender", currentUser.id);
-
-        if (sentError) throw sentError;
-
-        // Create a set of profiles the user has liked
-        const sentLikeIds = new Set(sentLikes.map((like) => like.receiver));
-        // Transform data with mutual flag
-        const transformedLikes = receivedLikes.map((like) => ({
-          id: like.id,
-          name: like.sender.full_name,
-          age: like.sender.age,
-          location: like.sender.location,
-          matchPercentage: Math.floor(Math.random() * 30) + 70, // Random match percentage
-          time: formatTime(like.liked_at),
-          image: like.sender.extra_images
-            ? like.sender.extra_images.split(",")[0].trim()
-            : "https://via.placeholder.com/150",
-          mutual: sentLikeIds.has(like.sender.id),
-          profileId: like.sender.id,
-          isPremium: like.sender.is_premium || false,
-        }));
-
-        setLikesData(transformedLikes);
-        
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("is_premium")
+          .eq("id", currentUser.id)
+          .single();
+        if (error) throw error;
+        setIsPremium(profile.is_premium || false);
       } catch (error) {
-        Alert.alert("Error", "Failed to fetch likes");
-        console.error(error);
-      } finally {
-        setLoading(false);
+        console.error("Failed to fetch premium status:", error);
       }
     };
-
-    if (currentUser) fetchLikes();
+    fetchPremiumStatus();
   }, [currentUser]);
 
-  // Format timestamp to relative time
+  // Fetch ignored profiles
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchIgnoredProfiles = async () => {
+      try {
+        const { data: ignores, error } = await supabase
+          .from('ignores')
+          .select('ignored_user_id')
+          .eq('user_id', currentUser.id);
+        if (error) throw error;
+        const ignoredIds = new Set(ignores.map(ignore => ignore.ignored_user_id));
+        setIgnoredProfiles(ignoredIds);
+      } catch (error) {
+        console.error('Failed to fetch ignores:', error);
+      }
+    };
+    fetchIgnoredProfiles();
+  }, [currentUser]);
+
+  // Real-time like updates
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Channel for received likes (where current user is receiver)
+    const receivedChannel = supabase.channel('realtime-received-likes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'likes',
+        filter: `receiver=eq.${currentUser.id}`
+      }, async (payload) => {
+        if (payload.eventType === 'INSERT') {
+          // Refetch likes when new like comes in
+          await fetchLikes();
+          if (!isFocused) setNewLikesCount(prev => prev + 1);
+        } else if (payload.eventType === 'DELETE') {
+          // Remove unliked profile
+          setLikesData(prev => 
+            prev.filter(like => like.id !== payload.old.id)
+          );
+        }
+      })
+      .subscribe();
+
+    // Channel for sent likes (where current user is sender)
+    const sentChannel = supabase.channel('realtime-sent-likes')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'likes',
+        filter: `sender=eq.${currentUser.id}`
+      }, (payload) => {
+        // Update mutual status when current user likes/unlikes
+        setLikesData(prev => 
+          prev.map(like => 
+            like.profileId === payload.old?.receiver || like.profileId === payload.new?.receiver
+              ? { ...like, mutual: payload.eventType === 'INSERT' } 
+              : like
+          )
+        );
+      })
+      .subscribe();
+
+    return () => {
+      receivedChannel.unsubscribe();
+      sentChannel.unsubscribe();
+    };
+  }, [currentUser, isFocused]);
+
+  // Fetch initial likes
+  const fetchLikes = useCallback(async () => {
+    if (!currentUser) return;
+
+    try {
+      setLoading(true);
+      
+      // Fetch received likes
+      const { data: receivedLikes, error: receivedError } = await supabase
+        .from("likes")
+        .select(`
+          id,
+          sender:profiles!likes_sender_fkey (
+            id,
+            full_name,
+            age,
+            location,
+            extra_images,
+            is_premium,
+            created_at
+          ),
+          liked_at
+        `)
+        .eq("receiver", currentUser.id)
+        .order("liked_at", { ascending: false });
+
+      if (receivedError) throw receivedError;
+
+      // Fetch sent likes
+      const { data: sentLikes, error: sentError } = await supabase
+        .from("likes")
+        .select("receiver")
+        .eq("sender", currentUser.id);
+
+      if (sentError) throw sentError;
+
+      // Create set of profiles user has liked
+      const sentLikeIds = new Set(sentLikes.map((like) => like.receiver));
+      
+      // Transform data
+      const transformedLikes = receivedLikes.map((like) => ({
+        id: like.id,
+        name: like.sender.full_name,
+        age: like.sender.age,
+        location: like.sender.location,
+        matchPercentage: Math.floor(Math.random() * 30) + 70,
+        time: formatTime(like.liked_at),
+        image: like.sender.extra_images
+          ? like.sender.extra_images.split(",")[0].trim()
+          : "https://via.placeholder.com/150",
+        mutual: sentLikeIds.has(like.sender.id),
+        profileId: like.sender.id,
+        isPremium: like.sender.is_premium || false,
+      }));
+
+      setLikesData(transformedLikes);
+      
+    } catch (error) {
+      Alert.alert("Error", "Failed to fetch likes");
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  }, [currentUser]);
+
+  // Fetch likes on mount
+  useEffect(() => {
+    if (currentUser) fetchLikes();
+  }, [currentUser, fetchLikes]);
+
+  // Format timestamp
   const formatTime = (timestamp) => {
     const now = new Date();
     const date = new Date(timestamp);
     const diffMinutes = Math.floor((now - date) / 60000);
 
     if (diffMinutes < 1) return "Just now";
-    if (diffMinutes < 60)
-      return `${diffMinutes} min${diffMinutes > 1 ? "s" : ""} ago`;
+    if (diffMinutes < 60) return `${diffMinutes} min${diffMinutes > 1 ? "s" : ""} ago`;
     if (diffMinutes < 1440) {
       const hours = Math.floor(diffMinutes / 60);
       return `${hours} hour${hours > 1 ? "s" : ""} ago`;
@@ -151,7 +241,7 @@ const [isPremium, setIsPremium] = useState(false);
   // Toggle like status
   const toggleLike = async (profileId) => {
     try {
-      // Check if like already exists
+      // Check if like exists
       const { data: existingLike, error: existingError } = await supabase
         .from("likes")
         .select()
@@ -162,41 +252,20 @@ const [isPremium, setIsPremium] = useState(false);
       if (existingError) throw existingError;
 
       if (existingLike) {
-        // Unlike: remove from database
+        // Unlike
         const { error: deleteError } = await supabase
           .from("likes")
           .delete()
           .eq("id", existingLike.id);
 
         if (deleteError) throw deleteError;
-
-        // Update UI
-        setLikesData((prev) =>
-          prev.map((like) =>
-            like.profileId === profileId ? { ...like, mutual: false } : like
-          )
-        );
-
-        Alert.alert("Unliked", "You removed your like");
       } else {
-        // Like: add to database
-        const { error: insertError } = await supabase.from("likes").insert([
-          {
-            sender: currentUser.id,
-            receiver: profileId,
-          },
-        ]);
+        // Like
+        const { error: insertError } = await supabase
+          .from("likes")
+          .insert([{ sender: currentUser.id, receiver: profileId }]);
 
         if (insertError) throw insertError;
-
-        // Update UI
-        setLikesData((prev) =>
-          prev.map((like) =>
-            like.profileId === profileId ? { ...like, mutual: true } : like
-          )
-        );
-
-        Alert.alert("Liked!", "You liked this profile");
       }
     } catch (error) {
       Alert.alert("Error", "Failed to update like status");
@@ -204,21 +273,47 @@ const [isPremium, setIsPremium] = useState(false);
     }
   };
 
-  // Filter likes based on active tab
-  const filteredLikes = likesData.filter((like) => {
+  // Handle ignore action
+  const handleIgnore = async (profileId) => {
+    if (!currentUser) return;
+    
+    try {
+      // Add to ignore list
+      const { error } = await supabase
+        .from('ignores')
+        .insert([{ 
+          user_id: currentUser.id, 
+          ignored_user_id: profileId 
+        }]);
+
+      if (error) throw error;
+      
+      // Update UI
+      setIgnoredProfiles(prev => new Set(prev).add(profileId));
+      setLikesData(prev => prev.filter(p => p.profileId !== profileId));
+    } catch (error) {
+      Alert.alert("Error", error.message || "Failed to ignore profile");
+    }
+  };
+
+  // Filter ignored profiles
+  const filteredLikes = likesData.filter(
+    like => !ignoredProfiles.has(like.profileId)
+  );
+
+  // Filter by active tab
+  const tabFilteredLikes = filteredLikes.filter((like) => {
     if (activeTab === "all") return true;
     if (activeTab === "mutual") return like.mutual;
     if (activeTab === "new") return !like.mutual;
     return true;
   });
   
+  // Render like item
   const renderLikeItem = ({ item }) => (
-    
     <TouchableOpacity
       style={styles.likeCard}
-      onPress={() =>
-        navigation.navigate("ProfileDetail", { profileId: item.profileId })
-      }
+      onPress={() => navigation.navigate("ProfileDetail", { profileId: item.profileId })}
     >
       <Image source={{ uri: item.image }} style={styles.likeImage} />
 
@@ -229,21 +324,19 @@ const [isPremium, setIsPremium] = useState(false);
           </Text>
           
           {item.isPremium && (
-          <MaterialCommunityIcons 
-            name="crown" 
-            size={16} 
-            color="#FFD700" 
-            style={styles.premiumBadge} 
-          />
-
-        )}
-        {item.mutual && (
-          <View style={styles.mutualBadge}>
-            <MaterialCommunityIcons name="heart" size={16} color="white" />
-            <Text style={styles.mutualText}>Mutual</Text>
-          </View>
-        )}
-         
+            <MaterialCommunityIcons 
+              name="crown" 
+              size={16} 
+              color="#FFD700" 
+              style={styles.premiumBadge} 
+            />
+          )}
+          {item.mutual && (
+            <View style={styles.mutualBadge}>
+              <MaterialCommunityIcons name="heart" size={16} color="white" />
+              <Text style={styles.mutualText}>Mutual</Text>
+            </View>
+          )}
         </View>
 
         <Text style={styles.location}>{item.location}</Text>
@@ -265,23 +358,35 @@ const [isPremium, setIsPremium] = useState(false);
         <Text style={styles.time}>{item.time}</Text>
       </View>
 
-      <TouchableOpacity
-        style={styles.likeButton}
-        onPress={(e) => {
-          e.stopPropagation(); // Prevent triggering card press
-          toggleLike(item.profileId);
-        }}
-      >
-        {item.mutual ? (
-          <MaterialCommunityIcons name="heart" size={28} color="#FF5A5F" />
-        ) : (
-          <MaterialCommunityIcons
-            name="heart-outline"
-            size={28}
-            color="#FF5A5F"
-          />
-        )}
-      </TouchableOpacity>
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.likeButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            toggleLike(item.profileId);
+          }}
+        >
+          {item.mutual ? (
+            <MaterialCommunityIcons name="heart" size={28} color="#FF5A5F" />
+          ) : (
+            <MaterialCommunityIcons
+              name="heart-outline"
+              size={28}
+              color="#FF5A5F"
+            />
+          )}
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.ignoreButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            handleIgnore(item.profileId);
+          }}
+        >
+          <MaterialIcons name="close" size={24} color="#666" />
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 
@@ -299,8 +404,16 @@ const [isPremium, setIsPremium] = useState(false);
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Likes</Text>
-        <TouchableOpacity style={styles.searchButton}>
+        <TouchableOpacity 
+          style={styles.searchButton}
+          onPress={() => navigation.navigate('Search')}
+        >
           <MaterialIcons name="search" size={28} color="#FF5A5F" />
+          {newLikesCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationText}>{newLikesCount}</Text>
+            </View>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -310,17 +423,12 @@ const [isPremium, setIsPremium] = useState(false);
           style={[styles.tabButton, activeTab === "all" && styles.activeTab]}
           onPress={() => setActiveTab("all")}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "all" && styles.activeTabText,
-            ]}
-          >
+          <Text style={[styles.tabText, activeTab === "all" && styles.activeTabText]}>
             All Likes
           </Text>
-          {likesData.length > 0 && (
+          {filteredLikes.length > 0 && (
             <View style={styles.tabBadge}>
-              <Text style={styles.tabBadgeText}>{likesData.length}</Text>
+              <Text style={styles.tabBadgeText}>{filteredLikes.length}</Text>
             </View>
           )}
         </TouchableOpacity>
@@ -329,18 +437,13 @@ const [isPremium, setIsPremium] = useState(false);
           style={[styles.tabButton, activeTab === "mutual" && styles.activeTab]}
           onPress={() => setActiveTab("mutual")}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "mutual" && styles.activeTabText,
-            ]}
-          >
+          <Text style={[styles.tabText, activeTab === "mutual" && styles.activeTabText]}>
             Mutual
           </Text>
-          {likesData.filter((l) => l.mutual).length > 0 && (
+          {filteredLikes.filter((l) => l.mutual).length > 0 && (
             <View style={styles.tabBadge}>
               <Text style={styles.tabBadgeText}>
-                {likesData.filter((l) => l.mutual).length}
+                {filteredLikes.filter((l) => l.mutual).length}
               </Text>
             </View>
           )}
@@ -350,18 +453,13 @@ const [isPremium, setIsPremium] = useState(false);
           style={[styles.tabButton, activeTab === "new" && styles.activeTab]}
           onPress={() => setActiveTab("new")}
         >
-          <Text
-            style={[
-              styles.tabText,
-              activeTab === "new" && styles.activeTabText,
-            ]}
-          >
+          <Text style={[styles.tabText, activeTab === "new" && styles.activeTabText]}>
             New Likes
           </Text>
-          {likesData.filter((l) => !l.mutual).length > 0 && (
+          {filteredLikes.filter((l) => !l.mutual).length > 0 && (
             <View style={styles.tabBadge}>
               <Text style={styles.tabBadgeText}>
-                {likesData.filter((l) => !l.mutual).length}
+                {filteredLikes.filter((l) => !l.mutual).length}
               </Text>
             </View>
           )}
@@ -369,9 +467,9 @@ const [isPremium, setIsPremium] = useState(false);
       </View>
 
       {/* Likes List */}
-      {filteredLikes.length > 0 ? (
+      {tabFilteredLikes.length > 0 ? (
         <FlatList
-          data={filteredLikes}
+          data={tabFilteredLikes}
           renderItem={renderLikeItem}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
@@ -395,30 +493,26 @@ const [isPremium, setIsPremium] = useState(false);
           </Text>
           <TouchableOpacity
             style={styles.profileButton}
-            onPress={() => navigation.navigate("EditProfile")}
+            onPress={() => navigation.navigate("ProfileUpdateScreen")}
           >
             <Text style={styles.profileButtonText}>Complete Profile</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Conditionally render premium banner */}
-      
-    {
-     
-    
-    !isPremium && (
-      <View style={styles.premiumBanner}>
-        <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
-        <Text style={styles.premiumText}>See who likes you with Premium</Text>
-        <TouchableOpacity 
-          style={styles.upgradeButton}
-          onPress={() => navigation.navigate('Premium')}
-        >
-          <Text style={styles.upgradeText}>Upgrade</Text>
-        </TouchableOpacity>
-      </View>
-          )}
+      {/* Premium banner */}
+      {!isPremium && (
+        <View style={styles.premiumBanner}>
+          <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
+          <Text style={styles.premiumText}>See who likes you with Premium</Text>
+          <TouchableOpacity 
+            style={styles.upgradeButton}
+            onPress={() => navigation.navigate('Premium')}
+          >
+            <Text style={styles.upgradeText}>Upgrade</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </Animated.View>
   );
 };
@@ -456,6 +550,23 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     padding: 5,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#FF5A5F',
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  notificationText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   tabContainer: {
     flexDirection: "row",
@@ -582,8 +693,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#aaa",
   },
+  actionButtons: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    height: '100%',
+  },
   likeButton: {
-    padding: 10,
+    padding: 5,
+  },
+  ignoreButton: {
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    borderRadius: 15,
+    padding: 5,
   },
   emptyContainer: {
     flex: 1,
