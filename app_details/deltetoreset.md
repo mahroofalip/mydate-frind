@@ -16,6 +16,9 @@ Remove-Item -Recurse -Force .\.expo
 npm install
 adb devices  
 npx expo run:android
+npm install --global eas-cli && eas init --id 7b4be892-fd49-464e-8f49-b762936d98f5
 eas build -p android --profile development
+eas build:configure
 eas build -p android --profile production
+
 

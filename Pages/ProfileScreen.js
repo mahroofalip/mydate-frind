@@ -148,7 +148,7 @@ export default function ProfileScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View >
         <Text>Loading profile...</Text>
       </View>
     );

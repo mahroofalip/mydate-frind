@@ -21,7 +21,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "d1d66d86-0cb1-40d1-ac90-c1b5837b2fd5"
+        "projectId": "545df850-a213-46f0-a35e-09ff9ad0fded"
       }
     },
     "plugins": [
@@ -35,6 +35,7 @@
           "backgroundColor": "#ffffff"
         }
       ]
-    ]
+    ],
+    "owner": "mahroof"
   }
 }
