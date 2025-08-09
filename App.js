@@ -400,10 +400,22 @@ export default function App() {
           setNewLikeCount(prev => prev + 1);
         }
       })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'likes',
+        filter: `receiver=eq.${currentUserId}`
+      }, (payload) => {
+        alert("Like removed");
+        // Decrease count when a like is removed
+        if (!likesScreenFocusedRef.current && newLikeCount > 0) {
+          setNewLikeCount(prev => Math.max(0, prev - 1));
+        }
+      })
       .subscribe();
 
     return () => channel.unsubscribe();
-  }, [currentUserId]);
+  }, [currentUserId, newLikeCount]);
 
   // Deep Link Handler
   useEffect(() => {
