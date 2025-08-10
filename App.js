@@ -6,8 +6,20 @@ import {
 } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { MaterialIcons, MaterialCommunityIcons, Ionicons } from "@expo/vector-icons";
-import { Linking, View, Text, StyleSheet, Animated, Easing, Dimensions } from "react-native";
+import {
+  MaterialIcons,
+  MaterialCommunityIcons,
+  Ionicons,
+} from "@expo/vector-icons";
+import {
+  Linking,
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Easing,
+  Dimensions,
+} from "react-native";
 import { supabase } from "./lib/supabase";
 import WelcomeScreen from "./Pages/WelcomeScreen";
 import SignUpScreen from "./Pages/SignUpScreen";
@@ -31,12 +43,12 @@ import PaymentResultScreen from "./Pages/PaymentResultScreen";
 
 export const navigationRef = createNavigationContainerRef();
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function MainTabs({ newLikeCount, setNewLikeCount }) {
+function MainTabs({ newLikeCount, setNewLikeCount, unreadMessageCount, setUnreadMessageCount }) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -68,9 +80,19 @@ function MainTabs({ newLikeCount, setNewLikeCount }) {
               />
             );
           } else if (route.name === "Messages") {
-            iconName = focused ? "chatbubble" : "chatbubble-outline";
-            iconComponent = (
-              <Ionicons name={iconName} size={size} color={color} />
+            return (
+              <View>
+                <Ionicons
+                  name={focused ? "chatbubble" : "chatbubble-outline"}
+                  size={size}
+                  color={color}
+                />
+                {unreadMessageCount > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{unreadMessageCount}</Text>
+                  </View>
+                )}
+              </View>
             );
           } else if (route.name === "Likes") {
             iconName = focused ? "heart" : "heart-outline";
@@ -93,7 +115,8 @@ function MainTabs({ newLikeCount, setNewLikeCount }) {
             iconComponent = (
               <Ionicons name={iconName} size={size} color={color} />
             );
-          } else if (route.name === "Search") {
+          } 
+          else if (route.name === "Search") {
             iconName = focused ? "search" : "search-outline";
             iconComponent = (
               <Ionicons name={iconName} size={size} color={color} />
@@ -107,14 +130,17 @@ function MainTabs({ newLikeCount, setNewLikeCount }) {
       <Tab.Screen name="Discover" component={HomeScreen} />
       <Tab.Screen name="Matches" component={MatchesScreen} />
       <Tab.Screen name="Search" component={SearchScreen} />
-      <Tab.Screen name="Messages" component={MessagesScreen} />
-      <Tab.Screen
-        name="Likes"
-        children={() => (
-          <LikesScreen
-            resetBadge={() => setNewLikeCount(0)}
+      <Tab.Screen name="Messages">
+        {() => (
+          <MessagesScreen 
+            unreadMessageCount={unreadMessageCount}
+            setUnreadMessageCount={setUnreadMessageCount}
           />
         )}
+      </Tab.Screen>
+      <Tab.Screen
+        name="Likes"
+        children={() => <LikesScreen resetBadge={() => setNewLikeCount(0)} />}
         options={{
           tabBarBadge: newLikeCount > 0 ? newLikeCount : undefined,
         }}
@@ -128,7 +154,7 @@ function MainTabs({ newLikeCount, setNewLikeCount }) {
 const ConfettiCelebration = ({ visible, senderName, onClose }) => {
   const particles = useRef([]);
   const particleCount = 100;
-  
+
   if (!particles.current.length) {
     // Initialize particles only once
     particles.current = Array.from({ length: particleCount }, () => ({
@@ -138,7 +164,7 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
       opacity: new Animated.Value(0),
       color: `hsl(${Math.random() * 360}, 100%, 50%)`,
       size: Math.random() * 15 + 5,
-      shape: Math.random() > 0.5 ? 'circle' : 'square'
+      shape: Math.random() > 0.5 ? "circle" : "square",
     }));
   }
 
@@ -149,45 +175,45 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
         // Random start position at top of screen
         const startX = Math.random() * width;
         particle.position.setValue({ x: startX, y: -10 });
-        
+
         // Reset animation values
         particle.opacity.setValue(1);
         particle.scale.setValue(0.3 + Math.random() * 0.7);
         particle.rotation.setValue(Math.random() * 360);
-        
+
         // Configure animations
         const animations = [];
-        
+
         // Falling animation
         animations.push(
           Animated.timing(particle.position.y, {
             toValue: height + 100,
             duration: 2000 + Math.random() * 2000,
             easing: Easing.linear,
-            useNativeDriver: true
+            useNativeDriver: true,
           })
         );
-        
+
         // Horizontal movement
         animations.push(
           Animated.timing(particle.position.x, {
             toValue: startX + (Math.random() * 200 - 100),
             duration: 2000 + Math.random() * 1000,
             easing: Easing.inOut(Easing.quad),
-            useNativeDriver: true
+            useNativeDriver: true,
           })
         );
-        
+
         // Rotation
         animations.push(
           Animated.timing(particle.rotation, {
             toValue: particle.rotation._value + Math.random() * 360,
             duration: 1000 + Math.random() * 2000,
             easing: Easing.linear,
-            useNativeDriver: true
+            useNativeDriver: true,
           })
         );
-        
+
         // Fade out
         animations.push(
           Animated.timing(particle.opacity, {
@@ -195,10 +221,10 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
             duration: 1000,
             delay: 1000 + Math.random() * 1000,
             easing: Easing.out(Easing.quad),
-            useNativeDriver: true
+            useNativeDriver: true,
           })
         );
-        
+
         // Start all animations in parallel
         Animated.parallel(animations).start();
       });
@@ -207,11 +233,11 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
       const timer = setTimeout(() => {
         onClose();
       }, 4000);
-      
+
       return () => clearTimeout(timer);
     } else {
       // Reset particles when not visible
-      particles.current.forEach(particle => {
+      particles.current.forEach((particle) => {
         particle.position.setValue({ x: 0, y: 0 });
         particle.opacity.setValue(0);
       });
@@ -226,43 +252,47 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
       <Text style={confettiStyles.message}>
         {senderName} liked your profile
       </Text>
-      
+
       <View style={confettiStyles.heartContainer}>
         <Animated.View
           style={[
             confettiStyles.heartPulse,
             {
               transform: [
-                { scale: new Animated.Value(1).interpolate({
+                {
+                  scale: new Animated.Value(1).interpolate({
                     inputRange: [0, 1],
-                    outputRange: [1, 1.5]
-                  })
+                    outputRange: [1, 1.5],
+                  }),
                 },
-                { rotate: new Animated.Value(0).interpolate({
+                {
+                  rotate: new Animated.Value(0).interpolate({
                     inputRange: [0, 1],
-                    outputRange: ['0deg', '10deg']
-                  })
-                }
-              ]
-            }
+                    outputRange: ["0deg", "10deg"],
+                  }),
+                },
+              ],
+            },
           ]}
         />
-        <MaterialCommunityIcons 
-          name="heart" 
-          size={60} 
-          color="#FF5A5F" 
+        <MaterialCommunityIcons
+          name="heart"
+          size={60}
+          color="#FF5A5F"
           style={confettiStyles.heart}
         />
       </View>
-      
+
       <Text style={confettiStyles.congratsText}>You're amazing!</Text>
-      
+
       {particles.current.map((particle, index) => (
         <Animated.View
           key={index}
           style={[
             confettiStyles.particle,
-            particle.shape === 'circle' ? confettiStyles.circle : confettiStyles.square,
+            particle.shape === "circle"
+              ? confettiStyles.circle
+              : confettiStyles.square,
             {
               backgroundColor: particle.color,
               width: particle.size,
@@ -270,15 +300,16 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
               transform: [
                 { translateX: particle.position.x },
                 { translateY: particle.position.y },
-                { rotate: particle.rotation.interpolate({
+                {
+                  rotate: particle.rotation.interpolate({
                     inputRange: [0, 360],
-                    outputRange: ['0deg', '360deg']
-                  }) 
+                    outputRange: ["0deg", "360deg"],
+                  }),
                 },
-                { scale: particle.scale }
+                { scale: particle.scale },
               ],
-              opacity: particle.opacity
-            }
+              opacity: particle.opacity,
+            },
           ]}
         />
       ))}
@@ -288,39 +319,39 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
 
 const confettiStyles = StyleSheet.create({
   container: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     zIndex: 1000,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    backgroundColor: "rgba(255, 255, 255, 0.95)",
   },
   title: {
     fontSize: 32,
-    fontWeight: 'bold',
-    color: '#FF5A5F',
+    fontWeight: "bold",
+    color: "#FF5A5F",
     marginBottom: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   message: {
     fontSize: 24,
-    textAlign: 'center',
-    color: '#333',
+    textAlign: "center",
+    color: "#333",
     marginBottom: 10,
     paddingHorizontal: 20,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   congratsText: {
     fontSize: 20,
-    color: '#FF5A5F',
-    fontWeight: '600',
+    color: "#FF5A5F",
+    fontWeight: "600",
     marginTop: 10,
   },
   heartContainer: {
-    position: 'relative',
+    position: "relative",
     marginVertical: 30,
   },
   heart: {
@@ -328,17 +359,17 @@ const confettiStyles = StyleSheet.create({
     zIndex: 2,
   },
   heartPulse: {
-    position: 'absolute',
+    position: "absolute",
     top: -15,
     left: -15,
     right: -15,
     bottom: -15,
     borderRadius: 50,
-    backgroundColor: 'rgba(255, 90, 95, 0.2)',
+    backgroundColor: "rgba(255, 90, 95, 0.2)",
     zIndex: 1,
   },
   particle: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     left: 0,
   },
@@ -352,10 +383,82 @@ const confettiStyles = StyleSheet.create({
 
 export default function App() {
   const [newLikeCount, setNewLikeCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [showCelebration, setShowCelebration] = useState(false);
-  const [celebrationSender, setCelebrationSender] = useState('');
+  const [celebrationSender, setCelebrationSender] = useState("");
   const likesScreenFocusedRef = useRef(false);
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      if (!currentUserId) return;
+      
+      const { count } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact' })
+        .eq('status', 'sent')
+        .neq('sender', currentUserId);
+        
+      setUnreadMessageCount(count || 0);
+    };
+
+    fetchUnreadCount();
+  }, [currentUserId]);
+
+  useEffect(() => {
+    if (!currentUserId) return;
+
+    // Subscribe to unread message updates
+    const unreadSubscription = supabase
+      .channel("unread-messages")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+          filter: `status=eq.sent`,
+        },
+        async (payload) => {
+          if (payload.new.sender === currentUserId) return;
+
+          // Get unread count for current user
+          const { count } = await supabase
+            .from("messages")
+            .select("*", { count: "exact" })
+            .eq("status", "sent")
+            .neq("sender", currentUserId);
+
+          setUnreadMessageCount(count || 0);
+        }
+      )
+      .subscribe();
+
+    // Subscribe to message read status updates
+    const readStatusSubscription = supabase
+      .channel("public:message_read_status")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `status=eq.read`,
+        },
+        async (payload) => {
+          // Only process if message was previously unread
+          if (payload.old.status === "sent") {
+            setUnreadMessageCount((prev) => Math.max(0, prev - 1));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      unreadSubscription.unsubscribe();
+      readStatusSubscription.unsubscribe();
+    };
+  }, [currentUserId]);
 
   // Get current user
   useEffect(() => {
@@ -377,41 +480,49 @@ export default function App() {
   useEffect(() => {
     if (!currentUserId) return;
 
-    const channel = supabase.channel('realtime-likes')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'likes',
-        filter: `receiver=eq.${currentUserId}`
-      }, async (payload) => {
-        if (!likesScreenFocusedRef.current) {
-          const { data: sender, error } = await supabase
-            .from('profiles')
-            .select('full_name')
-            .eq('id', payload.new.sender)
-            .single();
-          
-          const senderName = error ? 'Someone' : sender.full_name;
-          
-          // Show confetti celebration
-          setCelebrationSender(senderName);
-          setShowCelebration(true);
-          
-          setNewLikeCount(prev => prev + 1);
+    const channel = supabase
+      .channel("realtime-likes")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "likes",
+          filter: `receiver=eq.${currentUserId}`,
+        },
+        async (payload) => {
+          if (!likesScreenFocusedRef.current) {
+            const { data: sender, error } = await supabase
+              .from("profiles")
+              .select("full_name")
+              .eq("id", payload.new.sender)
+              .single();
+
+            const senderName = error ? "Someone" : sender.full_name;
+
+            // Show confetti celebration
+            setCelebrationSender(senderName);
+            setShowCelebration(true);
+
+            setNewLikeCount((prev) => prev + 1);
+          }
         }
-      })
-      .on('postgres_changes', {
-        event: 'DELETE',
-        schema: 'public',
-        table: 'likes',
-        filter: `receiver=eq.${currentUserId}`
-      }, (payload) => {
-        alert("Like removed");
-        // Decrease count when a like is removed
-        if (!likesScreenFocusedRef.current && newLikeCount > 0) {
-          setNewLikeCount(prev => Math.max(0, prev - 1));
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "likes",
+          filter: `receiver=eq.${currentUserId}`,
+        },
+        (payload) => {
+          // Decrease count when a like is removed
+          if (!likesScreenFocusedRef.current && newLikeCount > 0) {
+            setNewLikeCount((prev) => Math.max(0, prev - 1));
+          }
         }
-      })
+      )
       .subscribe();
 
     return () => channel.unsubscribe();
@@ -469,7 +580,7 @@ export default function App() {
         senderName={celebrationSender}
         onClose={() => setShowCelebration(false)}
       />
-      
+
       <Stack.Navigator
         initialRouteName="Welcome"
         screenOptions={{ headerShown: false }}
@@ -489,9 +600,11 @@ export default function App() {
         <Stack.Screen name="ProfileDetail" component={ProfileDetailScreen} />
         <Stack.Screen name="MainTabs">
           {() => (
-            <MainTabs 
-              newLikeCount={newLikeCount} 
-              setNewLikeCount={setNewLikeCount} 
+            <MainTabs
+              newLikeCount={newLikeCount}
+              setNewLikeCount={setNewLikeCount}
+              unreadMessageCount={unreadMessageCount}
+              setUnreadMessageCount={setUnreadMessageCount}
             />
           )}
         </Stack.Screen>

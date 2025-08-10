@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -12,8 +12,10 @@ import {
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import moment from 'moment';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 
-export default function MessagesScreen({ navigation }) {
+export default function MessagesScreen({  setUnreadMessageCount }) {
+  const navigation = useNavigation();
   const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
   const [searchText, setSearchText] = useState('');
@@ -21,6 +23,8 @@ export default function MessagesScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [currentUser, setCurrentUser] = useState(null);
   const [premiumVisible, setPremiumVisible] = useState(true);
+  
+  const isFocused = useIsFocused();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -32,51 +36,8 @@ export default function MessagesScreen({ navigation }) {
     fetchUser();
   }, []);
 
-  // Add this to useEffect that handles subscriptions
-useEffect(() => {
-  if (!currentUser) return;
-
-  // ... existing subscriptions ...
-
-  // New subscription for message read status updates
-  const readStatusSubscription = supabase
-    .channel('public:message_read_status')
-    .on('postgres_changes', {
-      event: 'UPDATE',
-      schema: 'public',
-      table: 'messages',
-      filter: `status=eq.read`
-    }, payload => {
-      // Update conversation unread count
-      setConversations(prev => 
-        prev.map(conv => {
-          if (conv.chatId === payload.new.chat_id) {
-            return {
-              ...conv,
-              unread: Math.max(0, conv.unread - 1)
-            };
-          }
-          return conv;
-        })
-      );
-    })
-    .subscribe();
-
-  return () => {
-    // ... existing unsubscribes ...
-    readStatusSubscription.unsubscribe();
-  };
-}, [currentUser]);
-
-
-
-
-
-  useEffect(() => {
-  if (!currentUser) return;
-
   // Check online status helper
-  const checkOnlineStatus = (user) => {
+  const checkOnlineStatus = useCallback((user) => {
     if (!user?.last_login_at) return false;
     const now = new Date();
     const lastLogin = new Date(user.last_login_at);
@@ -87,10 +48,10 @@ useEffect(() => {
       (!lastLogout || lastLogin > lastLogout) &&
       (!expiresAt || expiresAt > now)
     );
-  };
+  }, []);
 
   // Format time helper
-  const formatTime = (dateString) => {
+  const formatTime = useCallback((dateString) => {
     const now = moment();
     const msgTime = moment(dateString);
     const diffDays = now.diff(msgTime, 'days');
@@ -98,10 +59,12 @@ useEffect(() => {
     if (diffDays === 0) return msgTime.format('h:mm A');
     if (diffDays < 7) return msgTime.format('ddd');
     return msgTime.format('MMM D');
-  };
+  }, []);
 
   // Fetch conversations
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
+    if (!currentUser) return;
+    
     setLoading(true);
     
     try {
@@ -161,57 +124,78 @@ useEffect(() => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentUser, checkOnlineStatus, formatTime]);
 
-  fetchConversations();
+  useEffect(() => {
+    if (!currentUser) return;
 
-  // Real-time subscriptions
-  const messagesChannel = supabase
-    .channel('public:messages')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'messages',
-      filter: `sender=neq.${currentUser.id}`
-    }, async (payload) => {
-      // For new messages or updates
-      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-        const newMessage = payload.new;
-        
-        // Update the conversation
-        setConversations(prev => prev.map(conv => {
-          if (conv.chatId === newMessage.chat_id) {
-            // Update last message
-            const newTime = formatTime(newMessage.created_at);
-            const isNewer = moment(newMessage.created_at).isAfter(
-              moment(conv.lastUpdated || 0)
-            );
-            
-            return {
-              ...conv,
-              lastMessage: newMessage.content,
-              time: isNewer ? newTime : conv.time,
-              unread: newMessage.status === 'sent' 
-                ? conv.unread + 1 
-                : conv.unread,
-              lastUpdated: new Date()
-            };
+    let messagesChannel;
+    let timeoutId;
+
+    // Add a small delay before fetching to ensure DB updates are processed
+    if (isFocused) {
+      timeoutId = setTimeout(() => {
+        fetchConversations();
+      }, 300); // 300ms delay
+    }
+
+    // Real-time subscriptions
+    messagesChannel = supabase
+      .channel('public:messages')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'messages',
+        filter: `sender=neq.${currentUser.id}`
+      }, async (payload) => {
+        // For new messages
+        if (payload.eventType === 'INSERT') {
+          const newMessage = payload.new;
+          
+          // Update the conversation
+          setConversations(prev => prev.map(conv => {
+            if (conv.chatId === newMessage.chat_id) {
+              // Update last message
+              const newTime = formatTime(newMessage.created_at);
+              
+              return {
+                ...conv,
+                lastMessage: newMessage.content,
+                time: newTime,
+                unread: newMessage.status === 'sent' 
+                  ? conv.unread + 1 
+                  : conv.unread,
+                lastUpdated: new Date()
+              };
+            }
+            return conv;
+          }));
+        }
+        // For message status updates (read/sent)
+        else if (payload.eventType === 'UPDATE') {
+          const updatedMessage = payload.new;
+          
+          // Only handle read status updates
+          if (updatedMessage.status === 'read' && payload.old.status === 'sent') {
+            setConversations(prev => prev.map(conv => {
+              if (conv.chatId === updatedMessage.chat_id) {
+                return {
+                  ...conv,
+                  unread: Math.max(0, conv.unread - 1)
+                };
+              }
+              return conv;
+            }));
           }
-          return conv;
-        }));
-      }
-    })
-    .subscribe();
+        }
+      })
+      .subscribe();
 
-  return () => {
-    messagesChannel.unsubscribe();
-  };
-}, [currentUser]);
-
-  
-
-  // In MessagesScreen.js
-
+    return () => {
+      if (messagesChannel) messagesChannel.unsubscribe();
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [currentUser, isFocused, fetchConversations, formatTime]);
 
   // Filter conversations based on active tab
   useEffect(() => {
@@ -235,34 +219,25 @@ useEffect(() => {
     setFilteredConversations(filtered);
   }, [searchText, activeTab, conversations]);
 
-  const handleConversationPress = async (conversation) => {
-  // Mark all messages as read before navigating
-  const { data: unreadMessages } = await supabase
-    .from('messages')
-    .select('id')
-    .eq('chat_id', conversation.chatId)
-    .eq('status', 'sent')
-    .neq('sender', currentUser.id);
-
-  if (unreadMessages && unreadMessages.length > 0) {
-    const messageIds = unreadMessages.map(m => m.id);
-    
-    await supabase
-      .from('messages')
-      .update({ status: 'read' })
-      .in('id', messageIds);
-  }
-
-  navigation.navigate('ChatScreen', { 
-    conversation: {
-      id: conversation.chatId,
-      name: conversation.name,
-      image: conversation.image,
-      userId: conversation.userId
+  const handleConversationPress = (conversation) => {
+    // Decrease global unread count by this conversation's unread count
+    if (conversation.unread > 0) {
+      setUnreadMessageCount(prev => Math.max(0, prev - conversation.unread));
     }
-  });
-};
-
+    
+    navigation.navigate('ChatScreen', { 
+      conversation: {
+        id: conversation.chatId,
+        name: conversation.name,
+        image: conversation.image,
+        userId: conversation.userId
+      },
+      // Pass callback to update unread count if needed
+      onMessagesRead: (count) => {
+        setUnreadMessageCount(prev => Math.max(0, prev - count));
+      }
+    });
+  };
 
   const renderConversationItem = ({ item }) => (
     <TouchableOpacity 

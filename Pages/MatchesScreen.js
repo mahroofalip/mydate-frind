@@ -314,7 +314,7 @@ export default function MatchesScreen({ navigation }) {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Matches</Text>
-        <View style={styles.headerIcons}>
+        {/* <View style={styles.headerIcons}>
           <TouchableOpacity
             style={styles.searchButton}
             onPress={() => setSearchActive(!searchActive)}
@@ -328,7 +328,7 @@ export default function MatchesScreen({ navigation }) {
           <TouchableOpacity>
             <Ionicons name="filter" size={24} color="#FF5A5F" />
           </TouchableOpacity>
-        </View>
+        </View> */}
       </View>
 
       {/* Search Bar */}
