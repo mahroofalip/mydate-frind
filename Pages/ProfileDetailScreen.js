@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,21 +11,73 @@ import {
   TextInput,
   Alert,
   FlatList,
-  SafeAreaView
+  SafeAreaView,
+  ActivityIndicator
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialIcons, AntDesign } from '@expo/vector-icons';
+import { supabase } from '../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ProfileDetailScreen({ route, navigation }) {
-  const { profile } = route.params;
+  const { profileId } = route.params;
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [message, setMessage] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
-  
-  // Combine all profile images (main + extra) and filter out any empty values
-  const allImages = [profile.image, ...(profile.extraImages || [])].filter(Boolean);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch profile data from Supabase
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*, last_login_at, last_logout_at, session_expires_at')
+          .eq('id', profileId)
+          .single();
+
+        if (error) throw error;
+
+        // Process images
+        const allImages = data.extra_images 
+          ? data.extra_images.split(',').map(img => img.trim()).filter(img => img)
+          : [];
+
+        // Format profile data
+        const formattedProfile = {
+          id: data.id,
+          name: data.full_name,
+          age: data.age,
+          image: data.selfie_url || 'https://via.placeholder.com/300',
+          extraImages: allImages,
+          place: data.location,
+          distance: 'Nearby',
+          bio: data.bio,
+          interests: data.interests ? data.interests.split(',').slice(0, 3) : [],
+          match: `${Math.floor(Math.random() * 30) + 70}%`,
+          lookingFor: data.looking_for,
+          occupation: data.occupation,
+          education: data.education,
+          last_login_at: data.last_login_at,
+          last_logout_at: data.last_logout_at,
+          session_expires_at: data.session_expires_at,
+        };
+
+        setProfile(formattedProfile);
+      } catch (error) {
+        Alert.alert('Error', 'Failed to load profile details');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, [profileId]);
 
   const sendMessage = () => {
     if (!message.trim()) {
@@ -35,6 +87,27 @@ export default function ProfileDetailScreen({ route, navigation }) {
     Alert.alert('Message Sent', `To ${profile.name}: ${message}`);
     setModalVisible(false);
   };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF5A5F" />
+        <Text style={styles.loadingText}>Loading profile...</Text>
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={styles.emptyContainer}>
+        <MaterialIcons name="error-outline" size={60} color="#FF5A5F" />
+        <Text style={styles.emptyText}>Profile not found</Text>
+      </View>
+    );
+  }
+
+  // Combine all images
+  const allImages = [profile.image, ...(profile.extraImages || [])].filter(Boolean);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -377,5 +450,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  loadingText: {
+    marginTop: 20,
+    fontSize: 18,
+    color: '#555',
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8f9fa',
+  },
+  emptyText: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 20,
   },
 });

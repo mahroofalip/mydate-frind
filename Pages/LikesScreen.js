@@ -1,23 +1,24 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  FlatList, 
-  TouchableOpacity, 
-  Image, 
+import React, { useState, useEffect, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  FlatList,
+  TouchableOpacity,
+  Image,
   Animated,
   ActivityIndicator,
-  Alert
-} from 'react-native';
-import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { supabase } from '../lib/supabase';
-import { useFocusEffect } from '@react-navigation/native';
-import { useIsFocused } from '@react-navigation/native';
-
-const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
+  Alert,
+} from "react-native";
+import { MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons";
+import { supabase } from "../lib/supabase";
+import { useFocusEffect } from "@react-navigation/native";
+import { useIsFocused } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
+const LikesScreen = ({ onFocus, onBlur, resetBadge }) => {
+  const navigation = useNavigation();
   const isFocused = useIsFocused();
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState("all");
   const [fadeAnim] = useState(new Animated.Value(0));
   const [likesData, setLikesData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,7 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
       onFocus?.();
       resetBadge?.();
       setNewLikesCount(0);
-      
+
       return () => {
         onBlur?.();
       };
@@ -51,7 +52,10 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
   // Fetch current user
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user }, error } = await supabase.auth.getUser();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
       if (error) {
         Alert.alert("Error", "Failed to fetch user");
         setLoading(false);
@@ -89,14 +93,16 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
     const fetchIgnoredProfiles = async () => {
       try {
         const { data: ignores, error } = await supabase
-          .from('ignores')
-          .select('ignored_user_id')
-          .eq('user_id', currentUser.id);
+          .from("ignores")
+          .select("ignored_user_id")
+          .eq("user_id", currentUser.id);
         if (error) throw error;
-        const ignoredIds = new Set(ignores.map(ignore => ignore.ignored_user_id));
+        const ignoredIds = new Set(
+          ignores.map((ignore) => ignore.ignored_user_id)
+        );
         setIgnoredProfiles(ignoredIds);
       } catch (error) {
-        console.error('Failed to fetch ignores:', error);
+        console.error("Failed to fetch ignores:", error);
       }
     };
     fetchIgnoredProfiles();
@@ -107,43 +113,54 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
     if (!currentUser) return;
 
     // Channel for received likes (where current user is receiver)
-    const receivedChannel = supabase.channel('realtime-received-likes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'likes',
-        filter: `receiver=eq.${currentUser.id}`
-      }, async (payload) => {
-        if (payload.eventType === 'INSERT') {
-          // Refetch likes when new like comes in
-          await fetchLikes();
-          if (!isFocused) setNewLikesCount(prev => prev + 1);
-        } else if (payload.eventType === 'DELETE') {
-          // Remove unliked profile
-          setLikesData(prev => 
-            prev.filter(like => like.id !== payload.old.id)
-          );
+    const receivedChannel = supabase
+      .channel("realtime-received-likes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "likes",
+          filter: `receiver=eq.${currentUser.id}`,
+        },
+        async (payload) => {
+          if (payload.eventType === "INSERT") {
+            // Refetch likes when new like comes in
+            await fetchLikes();
+            if (!isFocused) setNewLikesCount((prev) => prev + 1);
+          } else if (payload.eventType === "DELETE") {
+            // Remove unliked profile
+            setLikesData((prev) =>
+              prev.filter((like) => like.id !== payload.old.id)
+            );
+          }
         }
-      })
+      )
       .subscribe();
 
     // Channel for sent likes (where current user is sender)
-    const sentChannel = supabase.channel('realtime-sent-likes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'likes',
-        filter: `sender=eq.${currentUser.id}`
-      }, (payload) => {
-        // Update mutual status when current user likes/unlikes
-        setLikesData(prev => 
-          prev.map(like => 
-            like.profileId === payload.old?.receiver || like.profileId === payload.new?.receiver
-              ? { ...like, mutual: payload.eventType === 'INSERT' } 
-              : like
-          )
-        );
-      })
+    const sentChannel = supabase
+      .channel("realtime-sent-likes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "likes",
+          filter: `sender=eq.${currentUser.id}`,
+        },
+        (payload) => {
+          // Update mutual status when current user likes/unlikes
+          setLikesData((prev) =>
+            prev.map((like) =>
+              like.profileId === payload.old?.receiver ||
+              like.profileId === payload.new?.receiver
+                ? { ...like, mutual: payload.eventType === "INSERT" }
+                : like
+            )
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -158,11 +175,12 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
 
     try {
       setLoading(true);
-      
+
       // Fetch received likes
       const { data: receivedLikes, error: receivedError } = await supabase
         .from("likes")
-        .select(`
+        .select(
+          `
           id,
           sender:profiles!likes_sender_fkey (
             id,
@@ -174,7 +192,8 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
             created_at
           ),
           liked_at
-        `)
+        `
+        )
         .eq("receiver", currentUser.id)
         .order("liked_at", { ascending: false });
 
@@ -190,7 +209,7 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
 
       // Create set of profiles user has liked
       const sentLikeIds = new Set(sentLikes.map((like) => like.receiver));
-      
+
       // Transform data
       const transformedLikes = receivedLikes.map((like) => ({
         id: like.id,
@@ -229,7 +248,8 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
     const diffMinutes = Math.floor((now - date) / 60000);
 
     if (diffMinutes < 1) return "Just now";
-    if (diffMinutes < 60) return `${diffMinutes} min${diffMinutes > 1 ? "s" : ""} ago`;
+    if (diffMinutes < 60)
+      return `${diffMinutes} min${diffMinutes > 1 ? "s" : ""} ago`;
     if (diffMinutes < 1440) {
       const hours = Math.floor(diffMinutes / 60);
       return `${hours} hour${hours > 1 ? "s" : ""} ago`;
@@ -276,21 +296,21 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
   // Handle ignore action
   const handleIgnore = async (profileId) => {
     if (!currentUser) return;
-    
+
     try {
       // Add to ignore list
-      const { error } = await supabase
-        .from('ignores')
-        .insert([{ 
-          user_id: currentUser.id, 
-          ignored_user_id: profileId 
-        }]);
+      const { error } = await supabase.from("ignores").insert([
+        {
+          user_id: currentUser.id,
+          ignored_user_id: profileId,
+        },
+      ]);
 
       if (error) throw error;
-      
+
       // Update UI
-      setIgnoredProfiles(prev => new Set(prev).add(profileId));
-      setLikesData(prev => prev.filter(p => p.profileId !== profileId));
+      setIgnoredProfiles((prev) => new Set(prev).add(profileId));
+      setLikesData((prev) => prev.filter((p) => p.profileId !== profileId));
     } catch (error) {
       Alert.alert("Error", error.message || "Failed to ignore profile");
     }
@@ -298,7 +318,7 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
 
   // Filter ignored profiles
   const filteredLikes = likesData.filter(
-    like => !ignoredProfiles.has(like.profileId)
+    (like) => !ignoredProfiles.has(like.profileId)
   );
 
   // Filter by active tab
@@ -308,12 +328,16 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
     if (activeTab === "new") return !like.mutual;
     return true;
   });
-  
+
   // Render like item
   const renderLikeItem = ({ item }) => (
     <TouchableOpacity
       style={styles.likeCard}
-      onPress={() => navigation.navigate("ProfileDetail", { profileId: item.profileId })}
+      onPress={() =>
+        navigation.navigate("ProfileDetail", {
+          profileId: item.profileId  // Pass only ID
+        })
+      }
     >
       <Image source={{ uri: item.image }} style={styles.likeImage} />
 
@@ -322,13 +346,13 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
           <Text style={styles.name}>
             {item.name}, {item.age}
           </Text>
-          
+
           {item.isPremium && (
-            <MaterialCommunityIcons 
-              name="crown" 
-              size={16} 
-              color="#FFD700" 
-              style={styles.premiumBadge} 
+            <MaterialCommunityIcons
+              name="crown"
+              size={16}
+              color="#FFD700"
+              style={styles.premiumBadge}
             />
           )}
           {item.mutual && (
@@ -376,7 +400,7 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
             />
           )}
         </TouchableOpacity>
-        
+
         <TouchableOpacity
           style={styles.ignoreButton}
           onPress={(e) => {
@@ -404,9 +428,9 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Your Likes</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.searchButton}
-          onPress={() => navigation.navigate('Search')}
+          onPress={() => navigation.navigate("Search")}
         >
           <MaterialIcons name="search" size={28} color="#FF5A5F" />
           {newLikesCount > 0 && (
@@ -423,7 +447,12 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
           style={[styles.tabButton, activeTab === "all" && styles.activeTab]}
           onPress={() => setActiveTab("all")}
         >
-          <Text style={[styles.tabText, activeTab === "all" && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "all" && styles.activeTabText,
+            ]}
+          >
             All Likes
           </Text>
           {filteredLikes.length > 0 && (
@@ -437,7 +466,12 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
           style={[styles.tabButton, activeTab === "mutual" && styles.activeTab]}
           onPress={() => setActiveTab("mutual")}
         >
-          <Text style={[styles.tabText, activeTab === "mutual" && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "mutual" && styles.activeTabText,
+            ]}
+          >
             Mutual
           </Text>
           {filteredLikes.filter((l) => l.mutual).length > 0 && (
@@ -453,7 +487,12 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
           style={[styles.tabButton, activeTab === "new" && styles.activeTab]}
           onPress={() => setActiveTab("new")}
         >
-          <Text style={[styles.tabText, activeTab === "new" && styles.activeTabText]}>
+          <Text
+            style={[
+              styles.tabText,
+              activeTab === "new" && styles.activeTabText,
+            ]}
+          >
             New Likes
           </Text>
           {filteredLikes.filter((l) => !l.mutual).length > 0 && (
@@ -505,9 +544,9 @@ const LikesScreen = ({ navigation, onFocus, onBlur, resetBadge }) => {
         <View style={styles.premiumBanner}>
           <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
           <Text style={styles.premiumText}>See who likes you with Premium</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.upgradeButton}
-            onPress={() => navigation.navigate('Premium')}
+            onPress={() => navigation.navigate("Premium")}
           >
             <Text style={styles.upgradeText}>Upgrade</Text>
           </TouchableOpacity>
@@ -550,23 +589,23 @@ const styles = StyleSheet.create({
   },
   searchButton: {
     padding: 5,
-    position: 'relative',
+    position: "relative",
   },
   notificationBadge: {
-    position: 'absolute',
+    position: "absolute",
     top: -5,
     right: -5,
-    backgroundColor: '#FF5A5F',
+    backgroundColor: "#FF5A5F",
     borderRadius: 10,
     width: 20,
     height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   notificationText: {
-    color: 'white',
+    color: "white",
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   tabContainer: {
     flexDirection: "row",
@@ -694,15 +733,15 @@ const styles = StyleSheet.create({
     color: "#aaa",
   },
   actionButtons: {
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    height: '100%',
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    height: "100%",
   },
   likeButton: {
     padding: 5,
   },
   ignoreButton: {
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: "rgba(0,0,0,0.05)",
     borderRadius: 15,
     padding: 5,
   },

@@ -465,12 +465,8 @@ export default function HomeScreen({ navigation }) {
               <TouchableOpacity
                 style={[styles.actionButton, styles.viewProfileButton]}
                 onPress={() => navigation.navigate('ProfileDetail', { 
-                  profile: {
-                    ...item,
-                    image: item.image,
-                    extraImages: item.extraImages
-                  }
-                })}
+                profileId: item.id  // Pass only ID
+          })}
               >
                 <Ionicons name="person" size={20} color="white" />
                 <Text style={styles.actionButtonText}>View</Text>
