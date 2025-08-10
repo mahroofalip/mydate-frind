@@ -44,6 +44,9 @@ import PaymentResultScreen from "./Pages/PaymentResultScreen";
 import SearchResultsScreen from "./Pages/SearchResultsScreen";
 import PrivacySettings from "./Pages/PrivacySettings";
 import AppSettings from "./Pages/AppSettings";
+import HelpCenterScreen from "./Pages/HelpCenterScreen";
+import ContactSupportScreen from "./Pages/ContactSupportScreen";
+import SafetyTipsScreen from "./Pages/SafetyTipsScreen";
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -587,6 +590,10 @@ export default function App() {
         <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
         <Stack.Screen name="PrivacySettings" component={PrivacySettings} />
         <Stack.Screen name="AppSettings" component={AppSettings} />
+        <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
+        <Stack.Screen name="ContactSupport" component={ContactSupportScreen} />
+        <Stack.Screen name="SafetyTips" component={SafetyTipsScreen} />
+
       </Stack.Navigator>
     </NavigationContainer>
   );

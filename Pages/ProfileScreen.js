@@ -36,6 +36,11 @@ export default function ProfileScreen({ navigation }) {
   const [matchesCount, setMatchesCount] = useState(0);
   const [likesCount, setLikesCount] = useState(0);
   const [responseRate, setResponseRate] = useState(0);
+  const [deletionRequested, setDeletionRequested] = useState(false);
+  const [deletionTimeLeft, setDeletionTimeLeft] = useState(null);
+  const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [deleteFeedback, setDeleteFeedback] = useState("");
 
   const [settings, setSettings] = useState({
     notifications: true,
@@ -162,6 +167,169 @@ export default function ProfileScreen({ navigation }) {
     } catch (error) {
       console.error("Error fetching stats:", error);
       Alert.alert("Error", "Could not load profile statistics");
+    }
+  };
+
+  // Check deletion status when profile loads
+  useEffect(() => {
+    const checkDeletionStatus = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        
+        if (!user) return;
+        
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("deletion_requested_at")
+          .eq("id", user.id)
+          .single();
+        
+        if (error) throw error;
+        
+        if (profile.deletion_requested_at) {
+          setDeletionRequested(true);
+          calculateTimeLeft(profile.deletion_requested_at);
+        }
+      } catch (error) {
+        console.error("Error checking deletion status:", error);
+      }
+    };
+    
+    checkDeletionStatus();
+  }, []);
+
+  // Calculate time remaining until deletion
+  const calculateTimeLeft = (deletionTime) => {
+    const deletionDate = new Date(deletionTime);
+    const now = new Date();
+    const diff = deletionDate - now;
+    
+    if (diff <= 0) {
+      // Deletion time has passed - account should be deleted
+      handleFinalDeletion();
+      return;
+    }
+    
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    
+    setDeletionTimeLeft(`${hours}h ${minutes}m`);
+  };
+
+  // Request account deletion
+  const requestAccountDeletion = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      if (!user) {
+        Alert.alert("Error", "User not authenticated");
+        return;
+      }
+      
+      // Set deletion time to 48 hours from now
+      const deletionTime = new Date();
+      deletionTime.setHours(deletionTime.getHours() + 48);
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({ 
+          deletion_requested_at: deletionTime.toISOString(),
+          deletion_feedback: deleteFeedback || "No reason provided"
+        })
+        .eq("id", user.id);
+      
+      if (error) throw error;
+      
+      setDeletionRequested(true);
+      setDeleteModalVisible(false);
+      setDeleteFeedback("");
+      calculateTimeLeft(deletionTime.toISOString());
+      
+      Alert.alert(
+        "Deletion Requested",
+        "Your account will be permanently deleted in 48 hours. You can cancel this request anytime before then."
+      );
+    } catch (error) {
+      console.error("Deletion request failed:", error);
+      Alert.alert("Error", "Failed to request account deletion");
+    }
+  };
+
+  // Cancel deletion request
+  const cancelDeletionRequest = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      if (!user) {
+        Alert.alert("Error", "User not authenticated");
+        return;
+      }
+      
+      const { error } = await supabase
+        .from("profiles")
+        .update({ deletion_requested_at: null })
+        .eq("id", user.id);
+      
+      if (error) throw error;
+      
+      setDeletionRequested(false);
+      setDeletionTimeLeft(null);
+      setCancelModalVisible(false);
+      
+      Alert.alert(
+        "Deletion Cancelled",
+        "Your account will not be deleted. Thank you for staying with us!"
+      );
+    } catch (error) {
+      console.error("Cancellation failed:", error);
+      Alert.alert("Error", "Failed to cancel deletion request");
+    }
+  };
+
+  // Actually delete the account
+  const handleFinalDeletion = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      
+      if (!user) return;
+      
+      // First, delete related data
+      await Promise.all([
+        supabase.from("matches").delete().or(`user1.eq.${user.id},user2.eq.${user.id}`),
+        supabase.from("likes").delete().or(`sender.eq.${user.id},receiver.eq.${user.id}`),
+        supabase.from("ignores").delete().or(`user_id.eq.${user.id},ignored_user_id.eq.${user.id}`),
+        supabase.from("chats").delete().or(`user1.eq.${user.id},user2.eq.${user.id}`),
+        // Add other tables as needed
+      ]);
+      
+      // Then delete the profile
+      await supabase.from("profiles").delete().eq("id", user.id);
+      
+      // Finally, delete the auth user
+      await supabase.auth.admin.deleteUser(user.id);
+      
+      // Clear any stored user data
+      await AsyncStorage.removeItem("@user");
+      
+      // Navigate to welcome screen
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Welcome" }],
+      });
+    } catch (error) {
+      console.error("Final deletion failed:", error);
+      Alert.alert(
+        "Deletion Error",
+        "Your account couldn't be fully deleted. Please contact support."
+      );
     }
   };
 
@@ -294,9 +462,6 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Photos</Text>
-            {/* <TouchableOpacity onPress={handleEdit}>
-              <Text style={styles.editLink}>Edit</Text>
-            </TouchableOpacity> */}
           </View>
           <ScrollView
             horizontal
@@ -308,18 +473,12 @@ export default function ProfileScreen({ navigation }) {
                 <Image source={{ uri: photo }} style={styles.photo} />
               </TouchableOpacity>
             ))}
-            {/* <TouchableOpacity onPress={handleEdit} style={styles.addPhoto}>
-              <MaterialIcons name="add" size={30} color="#FF5A5F" />
-            </TouchableOpacity> */}
           </ScrollView>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Interests</Text>
-            {/* <TouchableOpacity onPress={handleEdit}>
-              <Text style={styles.editLink}>Edit</Text>
-            </TouchableOpacity> */}
           </View>
           <View style={styles.interestsContainer}>
             {interests.map((interest, index) => (
@@ -333,12 +492,6 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
 
-          {/* <TouchableOpacity style={styles.settingItem} onPress={handleEdit}>
-            <MaterialIcons name="person" size={24} color="#FF5A5F" />
-            <Text style={styles.settingText}>Edit Profile</Text>
-            <MaterialIcons name="chevron-right" size={24} color="#888" />
-          </TouchableOpacity> */}
-
           <TouchableOpacity
             style={styles.settingItem}
             onPress={() => navigation.navigate("PrivacySettings")}
@@ -347,18 +500,6 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.settingText}>Privacy Settings</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
-
-          {/* <TouchableOpacity style={styles.settingItem}>
-            <MaterialIcons name="notifications" size={24} color="#FF5A5F" />
-            <Text style={styles.settingText}>Notifications</Text>
-            <View style={styles.switchContainer}>
-              <Switch
-                value={settings.notifications}
-                onValueChange={() => toggleSetting("notifications")}
-                trackColor={{ false: "#767577", true: "#FF5A5F" }}
-              />
-            </View>
-          </TouchableOpacity> */}
 
           <TouchableOpacity
             style={styles.settingItem}
@@ -405,10 +546,140 @@ export default function ProfileScreen({ navigation }) {
           <Text style={styles.logoutText}>Log Out</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.deleteButton}>
-          <Text style={styles.deleteText}>Delete Account</Text>
-        </TouchableOpacity>
+        {/* Deletion Section */}
+        {deletionRequested ? (
+          <TouchableOpacity 
+            style={styles.pendingDeletionContainer}
+            onPress={() => setCancelModalVisible(true)}
+          >
+            <View style={styles.deletionHeader}>
+              <MaterialIcons name="warning" size={24} color="#FFA000" />
+              <Text style={styles.deletionTitle}>Account Deletion Pending</Text>
+            </View>
+            <Text style={styles.deletionText}>
+              Your account will be permanently deleted in {deletionTimeLeft}.
+            </Text>
+            <Text style={styles.deletionNote}>
+              Tap here to cancel deletion request
+            </Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity 
+            style={styles.deleteButton}
+            onPress={() => setDeleteModalVisible(true)}
+          >
+            <Text style={styles.deleteText}>Delete Account</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        visible={deleteModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setDeleteModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialIcons 
+              name="warning" 
+              size={48} 
+              color="#FF5A5F" 
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Delete Your Account?</Text>
+            
+            <Text style={styles.modalText}>
+              This will schedule your account for deletion in 48 hours. During this time:
+            </Text>
+            
+            <View style={styles.infoItem}>
+              <MaterialIcons name="check" size={18} color="#4CAF50" />
+              <Text style={styles.infoText}>You can cancel deletion anytime</Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <MaterialIcons name="check" size={18} color="#4CAF50" />
+              <Text style={styles.infoText}>Your profile will be hidden from others</Text>
+            </View>
+            
+            <View style={styles.infoItem}>
+              <MaterialIcons name="check" size={18} color="#4CAF50" />
+              <Text style={styles.infoText}>After 48 hours, all data will be permanently removed</Text>
+            </View>
+            
+            <Text style={styles.feedbackLabel}>
+              Please tell us why you're leaving (optional)
+            </Text>
+            <TextInput
+              style={styles.feedbackInput}
+              placeholder="Your feedback helps us improve..."
+              multiline
+              numberOfLines={3}
+              value={deleteFeedback}
+              onChangeText={setDeleteFeedback}
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setDeleteModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.confirmDeleteButton}
+                onPress={requestAccountDeletion}
+              >
+                <Text style={styles.confirmButtonText}>Schedule Deletion</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Cancel Deletion Modal */}
+      <Modal
+        visible={cancelModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setCancelModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <MaterialCommunityIcons 
+              name="cancel" 
+              size={48} 
+              color="#4CAF50" 
+              style={styles.modalIcon}
+            />
+            <Text style={styles.modalTitle}>Cancel Account Deletion?</Text>
+            
+            <Text style={styles.modalText}>
+              Your account deletion is scheduled but not completed yet. 
+              Canceling will restore full access to your account.
+            </Text>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.cancelButton}
+                onPress={() => setCancelModalVisible(false)}
+              >
+                <Text style={styles.cancelButtonText}>Keep Deletion</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.confirmCancelButton}
+                onPress={cancelDeletionRequest}
+              >
+                <Text style={styles.confirmButtonText}>Cancel Deletion</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -653,20 +924,49 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   modalContent: {
     backgroundColor: "white",
-    width: "90%",
+    width: "100%",
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
+  },
+  modalIcon: {
+    alignSelf: "center",
+    marginBottom: 16,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "bold",
-    marginBottom: 15,
     color: "#333",
+    textAlign: "center",
+    marginBottom: 16,
   },
-  modalInput: {
+  modalText: {
+    fontSize: 16,
+    color: "#555",
+    marginBottom: 20,
+    lineHeight: 24,
+  },
+  infoItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#555",
+    marginLeft: 8,
+  },
+  feedbackLabel: {
+    fontSize: 15,
+    color: "#555",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  feedbackInput: {
     borderWidth: 1,
     borderColor: "#ddd",
     borderRadius: 10,
@@ -677,25 +977,72 @@ const styles = StyleSheet.create({
   },
   modalButtons: {
     flexDirection: "row",
-    justifyContent: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 10,
   },
   cancelButton: {
-    padding: 10,
+    flex: 1,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
     marginRight: 10,
   },
-  cancelText: {
-    color: "#888",
+  cancelButtonText: {
+    color: "#555",
     fontSize: 16,
+    fontWeight: "500",
   },
-  saveButton: {
-    backgroundColor: "#FF5A5F",
-    borderRadius: 10,
-    padding: 10,
-    paddingHorizontal: 20,
+  confirmDeleteButton: {
+    flex: 1,
+    backgroundColor: "#ff4444",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
   },
-  saveText: {
+  confirmCancelButton: {
+    flex: 1,
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+  },
+  confirmButtonText: {
     color: "white",
     fontWeight: "bold",
     fontSize: 16,
+  },
+  pendingDeletionContainer: {
+    backgroundColor: "#FFF8E1",
+    borderColor: "#FFD54F",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 20,
+  },
+  deletionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  deletionTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#FFA000",
+    marginLeft: 10,
+  },
+  deletionText: {
+    fontSize: 15,
+    color: "#5D4037",
+    marginBottom: 5,
+  },
+  deletionNote: {
+    fontSize: 14,
+    color: "#FFA000",
+    fontWeight: "500",
+    textAlign: "center",
+    marginTop: 8,
   },
 });
