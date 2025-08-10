@@ -33,6 +33,9 @@ export default function ProfileScreen({ navigation }) {
   const [profileUrl, setProfileUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isPremium, setIsPremium] = useState(false);
+  const [matchesCount, setMatchesCount] = useState(0);
+  const [likesCount, setLikesCount] = useState(0);
+  const [responseRate, setResponseRate] = useState(0);
 
   const [settings, setSettings] = useState({
     notifications: true,
@@ -60,38 +63,31 @@ export default function ProfileScreen({ navigation }) {
 
   const handleUpgrade = () => {
     navigation.navigate("Premium");
-    // alert('Redirect to premium upgrade screen');
   };
 
   const handleLogout = async () => {
     try {
-      // Get current user before signing out
       const {
         data: { user },
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Update logout time in profiles table
         await supabase
           .from("profiles")
           .update({
             last_logout_at: new Date().toISOString(),
-            session_expires_at: null, // Clear session expiration
+            session_expires_at: null,
           })
           .eq("id", user.id);
       }
 
-      // Now sign out from auth
       const { error } = await supabase.auth.signOut();
 
       if (error) {
         console.error("Logout failed:", error.message);
-        Alert.alert("Error7", "Failed to log out. Please try again.");
+        Alert.alert("Error", "Failed to log out. Please try again.");
       } else {
-        // Clear any stored user data
         await AsyncStorage.removeItem("@user");
-
-        // Navigate to welcome screen
         navigation.reset({
           index: 0,
           routes: [{ name: "Welcome" }],
@@ -99,7 +95,73 @@ export default function ProfileScreen({ navigation }) {
       }
     } catch (err) {
       console.error("Logout error:", err);
-      Alert.alert("Error8", "An unexpected error occurred during logout");
+      Alert.alert("Error", "An unexpected error occurred during logout");
+    }
+  };
+
+  // Fetch user stats from database
+  const fetchStats = async (userId) => {
+    try {
+      const { count: matches, error: matchesError } = await supabase
+        .from("matches")
+        .select("*", { count: "exact", head: true })
+        .not("user1", "is", null) // ensure user1 is set
+        .not("user2", "is", null) // ensure user2 is set
+        .or(`user1.eq.${userId},user2.eq.${userId}`);
+
+      if (matchesError) throw matchesError;
+
+
+      // Get likes count
+      const { count: likes } = await supabase
+        .from("likes")
+        .select("*", { count: "exact", head: true })
+        .eq("receiver", userId);
+
+      // Get all chats involving the user
+      const { data: userChats, error: chatsError } = await supabase
+        .from("chats")
+        .select("id")
+        .or(`user1.eq.${userId},user2.eq.${userId}`);
+
+      if (chatsError) throw chatsError;
+
+      let receivedMessages = 0;
+      let respondedMessages = 0;
+
+      if (userChats && userChats.length > 0) {
+        // Get all messages in these chats
+        const chatIds = userChats.map((chat) => chat.id);
+
+        const { data: messages, error: messagesError } = await supabase
+          .from("messages")
+          .select("sender, chat_id")
+          .in("chat_id", chatIds);
+
+        if (messagesError) throw messagesError;
+
+        // Count received messages
+        receivedMessages = messages.filter(
+          (message) => message.sender !== userId
+        ).length;
+
+        // Count responded messages
+        respondedMessages = messages.filter(
+          (message) => message.sender === userId
+        ).length;
+      }
+
+      const rate =
+        receivedMessages > 0
+          ? Math.round((respondedMessages / receivedMessages) * 100)
+          : 0;
+
+      setMatchesCount(matches || 0);
+      setLikesCount(likes || 0);
+      setResponseRate(rate);
+    } catch (error) {
+      console.error("Error fetching stats:", error);
+      Alert.alert("Error", "Could not load profile statistics");
     }
   };
 
@@ -121,7 +183,7 @@ export default function ProfileScreen({ navigation }) {
         if (error) throw error;
 
         if (profile) {
-          setIsPremium(profile.is_premium || false); // Add this line
+          setIsPremium(profile.is_premium || false);
           setName(profile.full_name || "");
           setBio(profile.bio || "");
           setAge(profile.age || "");
@@ -134,10 +196,13 @@ export default function ProfileScreen({ navigation }) {
           setExtraImages(
             profile.extra_images ? profile.extra_images.split(",") : []
           );
-          setProfileUrl(profile.extra_images ? profile.selfie_url : null);
+          setProfileUrl(profile.selfie_url || null);
+
+          // Fetch stats after profile is loaded
+          fetchStats(user.id);
         }
       } catch (err) {
-        Alert.alert("Error9", err.message);
+        Alert.alert("Error", err.message);
       } finally {
         setLoading(false);
       }
@@ -148,7 +213,7 @@ export default function ProfileScreen({ navigation }) {
 
   if (loading) {
     return (
-      <View >
+      <View style={styles.loadingContainer}>
         <Text>Loading profile...</Text>
       </View>
     );
@@ -173,25 +238,11 @@ export default function ProfileScreen({ navigation }) {
               source={{ uri: profileUrl || "https://via.placeholder.com/150" }}
               style={styles.profileImage}
             />
-            {/* <View style={styles.profileInfo}>
-              <View style={styles.nameContainer}>
-                <Text style={styles.name}>{name}, {age}</Text>
-              </View>
-              <View style={styles.locationContainer}>
-                <MaterialIcons name="location-on" size={16} color="#FF5A5F" />
-                <Text style={styles.location}>{location}</Text>
-              </View>
-              <TouchableOpacity style={styles.upgradeButton} onPress={handleUpgrade}>
-                <MaterialCommunityIcons name="crown" size={16} color="#FFD700" />
-                <Text style={styles.upgradeText}>Upgrade to Premium</Text>
-              </TouchableOpacity>
-            </View> */}
             <View style={styles.profileInfo}>
               <View style={styles.nameContainer}>
                 <Text style={styles.name}>
                   {name}, {age}
                 </Text>
-                {/* Add premium badge if user is premium */}
                 {isPremium && (
                   <MaterialCommunityIcons
                     name="crown"
@@ -205,7 +256,6 @@ export default function ProfileScreen({ navigation }) {
                 <MaterialIcons name="location-on" size={16} color="#FF5A5F" />
                 <Text style={styles.location}>{location}</Text>
               </View>
-              {/* Conditionally render upgrade button */}
               {!isPremium && (
                 <TouchableOpacity
                   style={styles.upgradeButton}
@@ -224,17 +274,18 @@ export default function ProfileScreen({ navigation }) {
 
           <Text style={styles.bio}>{bio}</Text>
 
+          {/* Updated Stats Section with Real Data */}
           <View style={styles.statsContainer}>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>42</Text>
+              <Text style={styles.statNumber}>{matchesCount}</Text>
               <Text style={styles.statLabel}>Matches</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>128</Text>
+              <Text style={styles.statNumber}>{likesCount}</Text>
               <Text style={styles.statLabel}>Likes</Text>
             </View>
             <View style={styles.statItem}>
-              <Text style={styles.statNumber}>89%</Text>
+              <Text style={styles.statNumber}>{responseRate}%</Text>
               <Text style={styles.statLabel}>Response</Text>
             </View>
           </View>
@@ -243,9 +294,9 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Photos</Text>
-            <TouchableOpacity onPress={handleEdit}>
+            {/* <TouchableOpacity onPress={handleEdit}>
               <Text style={styles.editLink}>Edit</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
           <ScrollView
             horizontal
@@ -255,21 +306,20 @@ export default function ProfileScreen({ navigation }) {
             {extraImages.map((photo, index) => (
               <TouchableOpacity key={index} style={styles.photoItem}>
                 <Image source={{ uri: photo }} style={styles.photo} />
-                {/* {index === 0 && <Text style={styles.photoBadge}>Main</Text>} */}
               </TouchableOpacity>
             ))}
-            <TouchableOpacity onPress={handleEdit} style={styles.addPhoto}>
+            {/* <TouchableOpacity onPress={handleEdit} style={styles.addPhoto}>
               <MaterialIcons name="add" size={30} color="#FF5A5F" />
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </ScrollView>
         </View>
 
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>My Interests</Text>
-            <TouchableOpacity onPress={handleEdit}>
+            {/* <TouchableOpacity onPress={handleEdit}>
               <Text style={styles.editLink}>Edit</Text>
-            </TouchableOpacity>
+            </TouchableOpacity> */}
           </View>
           <View style={styles.interestsContainer}>
             {interests.map((interest, index) => (
@@ -283,11 +333,11 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
 
-          <TouchableOpacity style={styles.settingItem} onPress={handleEdit}>
+          {/* <TouchableOpacity style={styles.settingItem} onPress={handleEdit}>
             <MaterialIcons name="person" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>Edit Profile</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity
             style={styles.settingItem}
@@ -298,7 +348,7 @@ export default function ProfileScreen({ navigation }) {
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.settingItem}>
+          {/* <TouchableOpacity style={styles.settingItem}>
             <MaterialIcons name="notifications" size={24} color="#FF5A5F" />
             <Text style={styles.settingText}>Notifications</Text>
             <View style={styles.switchContainer}>
@@ -308,7 +358,7 @@ export default function ProfileScreen({ navigation }) {
                 trackColor={{ false: "#767577", true: "#FF5A5F" }}
               />
             </View>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           <TouchableOpacity
             style={styles.settingItem}
@@ -368,13 +418,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8f9fa",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   premiumBadge: {
-  marginLeft: 8,
-  backgroundColor: '#FFD70020',
-  borderRadius: 50,
-  padding: 3,
-},
-
+    marginLeft: 8,
+    backgroundColor: "#FFD70020",
+    borderRadius: 50,
+    padding: 3,
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",

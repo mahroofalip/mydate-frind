@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -10,13 +10,13 @@ import {
   TextInput,
   Alert,
   Dimensions,
-  ActivityIndicator
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { AntDesign, Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { supabase } from '../lib/supabase';
+  ActivityIndicator,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { supabase } from "../lib/supabase";
 
-const { width, height } = Dimensions.get('window');
+const { width, height } = Dimensions.get("window");
 
 // Helper functions for online status
 const checkOnlineStatus = (profile) => {
@@ -24,22 +24,25 @@ const checkOnlineStatus = (profile) => {
 
   const now = new Date();
   const lastLogin = new Date(profile.last_login_at);
-  const lastLogout = profile.last_logout_at ? new Date(profile.last_logout_at) : null;
-  const expiresAt = profile.session_expires_at ? new Date(profile.session_expires_at) : null;
+  const lastLogout = profile.last_logout_at
+    ? new Date(profile.last_logout_at)
+    : null;
+  const expiresAt = profile.session_expires_at
+    ? new Date(profile.session_expires_at)
+    : null;
 
   return (
-    (!lastLogout || lastLogin > lastLogout) &&
-    (!expiresAt || expiresAt > now)
+    (!lastLogout || lastLogin > lastLogout) && (!expiresAt || expiresAt > now)
   );
 };
 
 const formatLastActive = (profile) => {
   const lastActive = profile.last_logout_at || profile.last_login_at;
-  if (!lastActive) return 'Long time ago';
+  if (!lastActive) return "Long time ago";
 
   const diffMinutes = Math.floor((new Date() - new Date(lastActive)) / 60000);
 
-  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 1) return "Just now";
   if (diffMinutes < 60) return `${diffMinutes} min ago`;
   if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} hours ago`;
   return `${Math.floor(diffMinutes / 1440)} days ago`;
@@ -47,29 +50,31 @@ const formatLastActive = (profile) => {
 
 const getOnlineStatusStyle = (profile) => {
   if (checkOnlineStatus(profile)) {
-    return { color: '#4CAF50', text: 'Online now' };
+    return { color: "#4CAF50", text: "Online now" };
   }
 
   const lastActive = formatLastActive(profile).toLowerCase();
 
-  if (lastActive.includes('just now') || lastActive.includes('min ago')) {
-    return { color: '#FFEB3B', text: 'Recently online' };
+  if (lastActive.includes("just now") || lastActive.includes("min ago")) {
+    return { color: "#FFEB3B", text: "Recently online" };
   }
 
-  return { color: '#F44336', text: lastActive };
+  return { color: "#F44336", text: lastActive };
 };
 
 // Helper function to get or create a chat
 const getOrCreateChat = async (currentUserId, recipientId) => {
   // Check if chat already exists
   const { data: existingChat, error: existingError } = await supabase
-    .from('chats')
-    .select('*')
-    .or(`and(user1.eq.${currentUserId},user2.eq.${recipientId}),and(user1.eq.${recipientId},user2.eq.${currentUserId})`)
+    .from("chats")
+    .select("*")
+    .or(
+      `and(user1.eq.${currentUserId},user2.eq.${recipientId}),and(user1.eq.${recipientId},user2.eq.${currentUserId})`
+    )
     .single();
 
-  if (existingError && existingError.code !== 'PGRST116') {
-    console.error('Error checking chat:', existingError);
+  if (existingError && existingError.code !== "PGRST116") {
+    console.error("Error checking chat:", existingError);
     return null;
   }
 
@@ -77,13 +82,13 @@ const getOrCreateChat = async (currentUserId, recipientId) => {
 
   // Create new chat
   const { data: newChat, error: createError } = await supabase
-    .from('chats')
+    .from("chats")
     .insert([{ user1: currentUserId, user2: recipientId }])
     .select()
     .single();
 
   if (createError) {
-    console.error('Error creating chat:', createError);
+    console.error("Error creating chat:", createError);
     return null;
   }
 
@@ -92,18 +97,18 @@ const getOrCreateChat = async (currentUserId, recipientId) => {
 
 // Helper function to send a message
 const sendSupabaseMessage = async (chatId, senderId, content) => {
-  const { error } = await supabase
-    .from('messages')
-    .insert([{
+  const { error } = await supabase.from("messages").insert([
+    {
       chat_id: chatId,
       sender: senderId,
       content,
-      type: 'text',
-      status: 'sent'
-    }]);
+      type: "text",
+      status: "sent",
+    },
+  ]);
 
   if (error) {
-    console.error('Error sending message:', error);
+    console.error("Error sending message:", error);
     return false;
   }
 
@@ -116,7 +121,7 @@ export default function HomeScreen({ navigation }) {
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
   const [selected, setSelected] = useState(null);
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [currentUser, setCurrentUser] = useState(null);
   const [sending, setSending] = useState(false);
   const [likedProfiles, setLikedProfiles] = useState(new Set());
@@ -125,7 +130,9 @@ export default function HomeScreen({ navigation }) {
   // Fetch current user
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       setCurrentUser(user);
       return user;
     };
@@ -137,22 +144,24 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     const fetchIgnoredProfiles = async () => {
       if (!currentUser) return;
-      
+
       try {
         const { data: ignores, error } = await supabase
-          .from('ignores')
-          .select('ignored_user_id')
-          .eq('user_id', currentUser.id);
-          
+          .from("ignores")
+          .select("ignored_user_id")
+          .eq("user_id", currentUser.id);
+
         if (error) throw error;
-        
-        const ignoredIds = new Set(ignores.map(ignore => ignore.ignored_user_id));
+
+        const ignoredIds = new Set(
+          ignores.map((ignore) => ignore.ignored_user_id)
+        );
         setIgnoredProfiles(ignoredIds);
       } catch (error) {
-        console.error('Failed to fetch ignores:', error);
+        console.error("Failed to fetch ignores:", error);
       }
     };
-    
+
     fetchIgnoredProfiles();
   }, [currentUser]);
 
@@ -160,23 +169,23 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     const fetchLikes = async () => {
       if (!currentUser) return;
-      
+
       try {
         const { data: likes, error } = await supabase
-          .from('likes')
-          .select('receiver')
-          .eq('sender', currentUser.id);
-          
+          .from("likes")
+          .select("receiver")
+          .eq("sender", currentUser.id);
+
         if (error) throw error;
-        
+
         // Create Set of liked profile IDs
-        const likedIds = new Set(likes.map(like => like.receiver));
+        const likedIds = new Set(likes.map((like) => like.receiver));
         setLikedProfiles(likedIds);
       } catch (error) {
-        console.error('Failed to fetch likes:', error);
+        console.error("Failed to fetch likes:", error);
       }
     };
-    
+
     fetchLikes();
   }, [currentUser]);
 
@@ -185,17 +194,17 @@ export default function HomeScreen({ navigation }) {
     const fetchProfiles = async () => {
       try {
         if (!currentUser) return;
-        
+
         // Start building the query
         let query = supabase
-          .from('profiles')
-          .select('*, last_login_at, last_logout_at, session_expires_at')
-          .neq('id', currentUser.id);
+          .from("profiles")
+          .select("*, last_login_at, last_logout_at, session_expires_at")
+          .neq("id", currentUser.id);
 
         // Only add not.in filter if we have ignored profiles
         if (ignoredProfiles.size > 0) {
           const ignoredIds = Array.from(ignoredProfiles);
-          query = query.not('id', 'in', `(${ignoredIds.join(',')})`);
+          query = query.not("id", "in", `(${ignoredIds.join(",")})`);
         }
 
         const { data, error } = await query;
@@ -203,22 +212,27 @@ export default function HomeScreen({ navigation }) {
         if (error) throw error;
 
         // Map Supabase data to our profile format
-        const formattedProfiles = data.map(profile => {
+        const formattedProfiles = data.map((profile) => {
           // Process all images from extra_images field
-          const allImages = profile.extra_images 
-            ? profile.extra_images.split(',').map(img => img.trim()).filter(img => img)
+          const allImages = profile.extra_images
+            ? profile.extra_images
+                .split(",")
+                .map((img) => img.trim())
+                .filter((img) => img)
             : [];
-          
+
           return {
             id: profile.id,
             name: profile.full_name,
             age: profile.age,
-            image: profile.selfie_url || 'https://via.placeholder.com/300',
+            image: profile.selfie_url || "https://via.placeholder.com/300",
             extraImages: allImages,
             place: profile.location,
-            distance: 'Nearby',
+            distance: "Nearby",
             bio: profile.bio,
-            interests: profile.interests ? profile.interests.split(',').slice(0, 3) : [],
+            interests: profile.interests
+              ? profile.interests.split(",").slice(0, 3)
+              : [],
             match: `${Math.floor(Math.random() * 30) + 70}%`,
             lookingFor: profile.looking_for,
             occupation: profile.occupation,
@@ -231,7 +245,7 @@ export default function HomeScreen({ navigation }) {
 
         setProfiles(formattedProfiles);
       } catch (error) {
-        Alert.alert('Error', error.message || 'Failed to load profiles');
+        Alert.alert("Error", error.message || "Failed to load profiles");
       } finally {
         setLoading(false);
       }
@@ -241,16 +255,24 @@ export default function HomeScreen({ navigation }) {
 
     // Subscribe to real-time profile updates
     const profileSubscription = supabase
-      .channel('public:profiles')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'profiles'
-      }, (payload) => {
-        setProfiles(prev => prev.map(profile =>
-          profile.id === payload.new.id ? { ...profile, ...payload.new } : profile
-        ));
-      })
+      .channel("public:profiles")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "profiles",
+        },
+        (payload) => {
+          setProfiles((prev) =>
+            prev.map((profile) =>
+              profile.id === payload.new.id
+                ? { ...profile, ...payload.new }
+                : profile
+            )
+          );
+        }
+      )
       .subscribe();
 
     return () => {
@@ -263,21 +285,21 @@ export default function HomeScreen({ navigation }) {
   // Handle ignore action
   const handleIgnore = async (profile) => {
     if (!currentUser) return;
-    
+
     try {
       // Add to ignore list
-      const { error } = await supabase
-        .from('ignores')
-        .insert([{ 
-          user_id: currentUser.id, 
-          ignored_user_id: profile.id 
-        }]);
+      const { error } = await supabase.from("ignores").insert([
+        {
+          user_id: currentUser.id,
+          ignored_user_id: profile.id,
+        },
+      ]);
 
       if (error) throw error;
-      
+
       // Update UI immediately
-      setIgnoredProfiles(prev => new Set(prev).add(profile.id));
-      setProfiles(prev => prev.filter(p => p.id !== profile.id));
+      setIgnoredProfiles((prev) => new Set(prev).add(profile.id));
+      setProfiles((prev) => prev.filter((p) => p.id !== profile.id));
     } catch (error) {
       Alert.alert("Error", error.message || "Failed to ignore profile");
     }
@@ -285,65 +307,65 @@ export default function HomeScreen({ navigation }) {
 
   // Filter out ignored profiles
   const filteredProfiles = profiles.filter(
-    profile => !ignoredProfiles.has(profile.id)
+    (profile) => !ignoredProfiles.has(profile.id)
   );
 
   // Toggle like status with real-time updates
   const toggleLike = async (profile) => {
     if (!currentUser) return;
-  
+
     const isLiked = likedProfiles.has(profile.id);
     const newLikedProfiles = new Set(likedProfiles);
-    
+
     try {
       if (isLiked) {
         // Unlike: remove from database
         const { error } = await supabase
-          .from('likes')
+          .from("likes")
           .delete()
-          .eq('sender', currentUser.id)
-          .eq('receiver', profile.id);
-          
+          .eq("sender", currentUser.id)
+          .eq("receiver", profile.id);
+
         if (error) throw error;
-        
+
         newLikedProfiles.delete(profile.id);
       } else {
         // Like: add to database
-        const { error } = await supabase
-          .from('likes')
-          .insert([{ 
-            sender: currentUser.id, 
-            receiver: profile.id
-          }]);
+        const { error } = await supabase.from("likes").insert([
+          {
+            sender: currentUser.id,
+            receiver: profile.id,
+          },
+        ]);
 
         if (error) throw error;
-        
+
         newLikedProfiles.add(profile.id);
-        
+
         // Check for reciprocal like (match)
         const { data: reciprocalLike, error: reciprocalError } = await supabase
-          .from('likes')
+          .from("likes")
           .select()
-          .eq('sender', profile.id)
-          .eq('receiver', currentUser.id)
+          .eq("sender", profile.id)
+          .eq("receiver", currentUser.id)
           .maybeSingle();
 
         if (reciprocalError) throw reciprocalError;
 
         if (reciprocalLike) {
           // Create match if reciprocal like exists
-          const { error: matchError } = await supabase
-            .from('matches')
-            .insert([{
+          const { error: matchError } = await supabase.from("matches").insert([
+            {
               user1: currentUser.id,
-              user2: profile.id
-            }]);
+              user2: profile.id,
+            },
+          ]);
 
           if (matchError) throw matchError;
 
           // Create chat automatically
           await getOrCreateChat(currentUser.id, profile.id);
-          
+
           Alert.alert(
             "It's a match!",
             `You and ${profile.name} liked each other`,
@@ -353,50 +375,60 @@ export default function HomeScreen({ navigation }) {
                 onPress: () => {
                   setSelected(profile);
                   setModalVisible(true);
-                }
+                },
               },
-              { text: "Later" }
+              { text: "Later" },
             ]
           );
         }
       }
-      
+
       // Update UI immediately
       setLikedProfiles(newLikedProfiles);
     } catch (error) {
-      Alert.alert("Error", error.message || `Failed to ${isLiked ? 'unlike' : 'like'}`);
+      Alert.alert(
+        "Error",
+        error.message || `Failed to ${isLiked ? "unlike" : "like"}`
+      );
     }
   };
 
   // Send message handler
   const handleSendMessage = async () => {
     if (!message.trim() || !currentUser || !selected) {
-      Alert.alert('Error', 'Please enter a message');
+      Alert.alert("Error", "Please enter a message");
       return;
     }
 
     setSending(true);
-    
+
     try {
       // 1. Get or create chat between users
       const chat = await getOrCreateChat(currentUser.id, selected.id);
-      
+
       if (!chat) {
-        throw new Error('Failed to create conversation');
+        throw new Error("Failed to create conversation");
       }
 
       // 2. Send message
-      const success = await sendSupabaseMessage(chat.id, currentUser.id, message);
-      
+      const success = await sendSupabaseMessage(
+        chat.id,
+        currentUser.id,
+        message
+      );
+
       if (success) {
-        Alert.alert('Message Sent', `Your message has been sent to ${selected.name}`);
+        Alert.alert(
+          "Message Sent",
+          `Your message has been sent to ${selected.name}`
+        );
         setModalVisible(false);
-        setMessage('');
+        setMessage("");
       } else {
-        throw new Error('Failed to send message');
+        throw new Error("Failed to send message");
       }
     } catch (error) {
-      Alert.alert('Error', error.message || 'Failed to send message');
+      Alert.alert("Error", error.message || "Failed to send message");
     } finally {
       setSending(false);
     }
@@ -406,7 +438,7 @@ export default function HomeScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const onlineStatus = getOnlineStatusStyle(item);
     const isLiked = likedProfiles.has(item.id);
-    
+
     return (
       <View style={styles.cardContainer}>
         <ImageBackground
@@ -415,23 +447,23 @@ export default function HomeScreen({ navigation }) {
           resizeMode="cover"
         >
           <LinearGradient
-            colors={['transparent', 'rgba(0,0,0,0.01)', 'rgba(0,0,0,0.8)']}
+            colors={["transparent", "rgba(0,0,0,0.01)", "rgba(0,0,0,0.8)"]}
             locations={[0, 0.4, 1]}
             style={styles.gradient}
           />
           <View style={styles.headerIcons}>
-            <TouchableOpacity 
-              style={styles.iconButton} 
+            <TouchableOpacity
+              style={styles.iconButton}
               onPress={() => toggleLike(item)}
             >
-              <AntDesign 
-                name={isLiked ? "heart" : "hearto"} 
-                size={28} 
-                color={isLiked ? "#FF5A5F" : "white"} 
+              <AntDesign
+                name={isLiked ? "heart" : "hearto"}
+                size={28}
+                color={isLiked ? "#FF5A5F" : "white"}
               />
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.iconButton} 
+            <TouchableOpacity
+              style={styles.iconButton}
               onPress={() => handleIgnore(item)}
             >
               <AntDesign name="close" size={28} color="white" />
@@ -439,39 +471,47 @@ export default function HomeScreen({ navigation }) {
           </View>
           <View style={styles.infoSection}>
             <View style={styles.nameRow}>
-              <Text style={styles.name}>{item.name}, {item.age}</Text>
+              <Text style={styles.name}>
+                {item.name}, {item.age}
+              </Text>
               <View style={styles.matchBadge}>
                 <Text style={styles.matchText}>{item.match}</Text>
               </View>
             </View>
-            <Text style={styles.place}>{item.place} • {item.distance}</Text>
+            <Text style={styles.place}>
+              {item.place} • {item.distance}
+            </Text>
 
             <Text style={styles.lastOnline}>
-              Status:{' '}
-              <Text style={{ color: onlineStatus.color, fontWeight: 'bold' }}>
+              Status:{" "}
+              <Text style={{ color: onlineStatus.color, fontWeight: "bold" }}>
                 {onlineStatus.text}
               </Text>
             </Text>
 
             <Text style={styles.bio}>{item.bio}</Text>
             <View style={styles.tagsRow}>
-              {item?.interests?.map((tag, index) => (
-                <View key={index} style={styles.tag}>
-                  <Text style={styles.tagText}>{tag}</Text>
-                </View>
-              ))}
+              {Array.isArray(item?.interests) &&
+                item.interests.length > 0 &&
+                item.interests.map((tag, index) => (
+                  <View key={index} style={styles.tag}>
+                    <Text style={styles.tagText}>{tag}</Text>
+                  </View>
+                ))}
             </View>
             <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.actionButton, styles.viewProfileButton]}
-                onPress={() => navigation.navigate('ProfileDetail', { 
-                profileId: item.id  // Pass only ID
-          })}
+                onPress={() =>
+                  navigation.navigate("ProfileDetail", {
+                    profileId: item.id, // Pass only ID
+                  })
+                }
               >
                 <Ionicons name="person" size={20} color="white" />
                 <Text style={styles.actionButtonText}>View</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity
                 style={[styles.actionButton, styles.messageButton]}
                 onPress={() => {
@@ -503,7 +543,9 @@ export default function HomeScreen({ navigation }) {
       <View style={styles.emptyContainer}>
         <MaterialIcons name="group-off" size={80} color="#888" />
         <Text style={styles.emptyText}>No profiles found</Text>
-        <Text style={styles.emptySubtext}>Try adjusting your preferences or search radius</Text>
+        <Text style={styles.emptySubtext}>
+          Try adjusting your preferences or search radius
+        </Text>
       </View>
     );
   }
@@ -513,7 +555,7 @@ export default function HomeScreen({ navigation }) {
       <FlatList
         ref={listRef}
         data={filteredProfiles}
-        keyExtractor={item => item.id}
+        keyExtractor={(item) => item.id}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -543,15 +585,15 @@ export default function HomeScreen({ navigation }) {
               autoFocus
             />
             <View style={styles.modalActions}>
-              <TouchableOpacity 
-                onPress={() => setModalVisible(false)} 
+              <TouchableOpacity
+                onPress={() => setModalVisible(false)}
                 style={styles.cancelBtn}
                 disabled={sending}
               >
                 <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                onPress={handleSendMessage} 
+              <TouchableOpacity
+                onPress={handleSendMessage}
                 style={styles.sendBtn}
                 disabled={sending}
               >
@@ -572,7 +614,7 @@ export default function HomeScreen({ navigation }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: "#f8f9fa",
   },
   cardContainer: {
     width,
@@ -580,83 +622,83 @@ const styles = StyleSheet.create({
   },
   image: {
     flex: 1,
-    width: '100%',
-    height: '100%',
+    width: "100%",
+    height: "100%",
   },
   gradient: {
-    position: 'absolute',
+    position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    height: '60%',
+    height: "60%",
   },
   headerIcons: {
-    position: 'absolute',
+    position: "absolute",
     top: 50,
     right: 20,
-    flexDirection: 'row',
+    flexDirection: "row",
   },
   iconButton: {
     width: 50,
     height: 50,
     borderRadius: 25,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
     marginLeft: 10,
   },
   infoSection: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
     padding: 25,
   },
   nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     marginBottom: 5,
   },
   name: {
     fontSize: 32,
-    fontWeight: '800',
-    color: 'white',
+    fontWeight: "800",
+    color: "white",
   },
   matchBadge: {
-    backgroundColor: '#FF5A5F',
+    backgroundColor: "#FF5A5F",
     paddingHorizontal: 15,
     paddingVertical: 7,
     borderRadius: 20,
   },
   matchText: {
-    color: 'white',
-    fontWeight: '700',
+    color: "white",
+    fontWeight: "700",
     fontSize: 16,
   },
   place: {
     fontSize: 18,
-    color: 'white',
+    color: "white",
     marginBottom: 5,
   },
   lastOnline: {
     fontSize: 16,
-    color: 'white',
+    color: "white",
     marginBottom: 15,
   },
   bio: {
     fontSize: 16,
-    color: 'white',
+    color: "white",
     marginBottom: 15,
     lineHeight: 22,
   },
   tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     marginBottom: 20,
   },
   tag: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: "rgba(255,255,255,0.2)",
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
@@ -664,117 +706,117 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   tagText: {
-    color: 'white',
+    color: "white",
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   actions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 15,
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 15,
     borderRadius: 30,
   },
   viewProfileButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: "rgba(255,255,255,0.2)",
     borderWidth: 1,
-    borderColor: 'white',
+    borderColor: "white",
   },
   messageButton: {
-    backgroundColor: '#FF5A5F',
+    backgroundColor: "#FF5A5F",
   },
   actionButtonText: {
-    color: 'white',
-    fontWeight: '700',
+    color: "white",
+    fontWeight: "700",
     fontSize: 16,
     marginLeft: 8,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
   },
   loadingText: {
     marginTop: 20,
     fontSize: 18,
-    color: '#555',
+    color: "#555",
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#fff",
     padding: 20,
   },
   emptyText: {
     fontSize: 24,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#333",
     marginTop: 20,
   },
   emptySubtext: {
     fontSize: 16,
-    color: '#777',
+    color: "#777",
     marginTop: 10,
-    textAlign: 'center',
+    textAlign: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: '#000000aa',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#000000aa",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   modalBox: {
-    width: '100%',
-    backgroundColor: '#fff',
+    width: "100%",
+    backgroundColor: "#fff",
     borderRadius: 25,
     padding: 25,
   },
   modalTitle: {
     fontSize: 22,
-    fontWeight: '800',
+    fontWeight: "800",
     marginBottom: 15,
-    textAlign: 'center',
+    textAlign: "center",
   },
   input: {
-    backgroundColor: '#f4f4f4',
+    backgroundColor: "#f4f4f4",
     borderRadius: 15,
     padding: 18,
     fontSize: 16,
     minHeight: 120,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
     marginBottom: 20,
   },
   modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     gap: 15,
   },
   cancelBtn: {
-    backgroundColor: '#888',
+    backgroundColor: "#888",
     padding: 16,
     borderRadius: 30,
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   sendBtn: {
-    backgroundColor: '#FF5A5F',
+    backgroundColor: "#FF5A5F",
     padding: 16,
     borderRadius: 30,
     flex: 1,
-    alignItems: 'center',
+    alignItems: "center",
   },
   buttonText: {
-    color: '#fff',
-    fontWeight: '700',
+    color: "#fff",
+    fontWeight: "700",
     fontSize: 16,
   },
 });

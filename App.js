@@ -1,3 +1,4 @@
+// App.js (fully modified)
 import "react-native-gesture-handler";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
@@ -40,6 +41,9 @@ import ConnectScreen from "./Pages/ConnectScreen";
 import PremiumScreen from "./Pages/PremiumScreen";
 import PaymentScreen from "./Pages/PaymentScreen";
 import PaymentResultScreen from "./Pages/PaymentResultScreen";
+import SearchResultsScreen from "./Pages/SearchResultsScreen";
+import PrivacySettings from "./Pages/PrivacySettings";
+import AppSettings from "./Pages/AppSettings";
 
 export const navigationRef = createNavigationContainerRef();
 
@@ -48,7 +52,12 @@ const { width, height } = Dimensions.get("window");
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
-function MainTabs({ newLikeCount, setNewLikeCount, unreadMessageCount, setUnreadMessageCount }) {
+function MainTabs({
+  newLikeCount,
+  setNewLikeCount,
+  unreadMessageCount,
+  setUnreadMessageCount,
+}) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -62,19 +71,18 @@ function MainTabs({ newLikeCount, setNewLikeCount, unreadMessageCount, setUnread
           backgroundColor: "#fff",
         },
         tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          let iconComponent;
-
           if (route.name === "Discover") {
-            iconName = focused ? "compass" : "compass-outline";
-            iconComponent = (
-              <Ionicons name={iconName} size={size} color={color} />
+            return (
+              <Ionicons
+                name={focused ? "compass" : "compass-outline"}
+                size={size}
+                color={color}
+              />
             );
           } else if (route.name === "Matches") {
-            iconName = focused ? "star" : "star-outline";
-            iconComponent = (
+            return (
               <MaterialCommunityIcons
-                name={iconName}
+                name={focused ? "star" : "star-outline"}
                 size={size}
                 color={color}
               />
@@ -95,11 +103,10 @@ function MainTabs({ newLikeCount, setNewLikeCount, unreadMessageCount, setUnread
               </View>
             );
           } else if (route.name === "Likes") {
-            iconName = focused ? "heart" : "heart-outline";
-            iconComponent = (
+            return (
               <View>
                 <MaterialCommunityIcons
-                  name={iconName}
+                  name={focused ? "heart" : "heart-outline"}
                   size={size}
                   color={color}
                 />
@@ -111,28 +118,31 @@ function MainTabs({ newLikeCount, setNewLikeCount, unreadMessageCount, setUnread
               </View>
             );
           } else if (route.name === "Profile") {
-            iconName = focused ? "person" : "person-outline";
-            iconComponent = (
-              <Ionicons name={iconName} size={size} color={color} />
+            return (
+              <Ionicons
+                name={focused ? "person" : "person-outline"}
+                size={size}
+                color={color}
+              />
             );
-          } 
-          else if (route.name === "Search") {
-            iconName = focused ? "search" : "search-outline";
-            iconComponent = (
-              <Ionicons name={iconName} size={size} color={color} />
+          } else if (route.name === "Search") {
+            return (
+              <Ionicons
+                name={focused ? "search" : "search-outline"}
+                size={size}
+                color={color}
+              />
             );
           }
-
-          return iconComponent;
         },
       })}
     >
       <Tab.Screen name="Discover" component={HomeScreen} />
       <Tab.Screen name="Matches" component={MatchesScreen} />
-      <Tab.Screen name="Search" component={SearchScreen} />
+      {/* <Tab.Screen name="Search" component={SearchScreen} /> */}
       <Tab.Screen name="Messages">
         {() => (
-          <MessagesScreen 
+          <MessagesScreen
             unreadMessageCount={unreadMessageCount}
             setUnreadMessageCount={setUnreadMessageCount}
           />
@@ -156,7 +166,6 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
   const particleCount = 100;
 
   if (!particles.current.length) {
-    // Initialize particles only once
     particles.current = Array.from({ length: particleCount }, () => ({
       position: new Animated.ValueXY(),
       rotation: new Animated.Value(0),
@@ -170,73 +179,47 @@ const ConfettiCelebration = ({ visible, senderName, onClose }) => {
 
   useEffect(() => {
     if (visible) {
-      // Start confetti animation
       particles.current.forEach((particle, index) => {
-        // Random start position at top of screen
         const startX = Math.random() * width;
         particle.position.setValue({ x: startX, y: -10 });
-
-        // Reset animation values
         particle.opacity.setValue(1);
         particle.scale.setValue(0.3 + Math.random() * 0.7);
         particle.rotation.setValue(Math.random() * 360);
 
-        // Configure animations
-        const animations = [];
-
-        // Falling animation
-        animations.push(
+        const animations = [
           Animated.timing(particle.position.y, {
             toValue: height + 100,
             duration: 2000 + Math.random() * 2000,
             easing: Easing.linear,
             useNativeDriver: true,
-          })
-        );
-
-        // Horizontal movement
-        animations.push(
+          }),
           Animated.timing(particle.position.x, {
             toValue: startX + (Math.random() * 200 - 100),
             duration: 2000 + Math.random() * 1000,
             easing: Easing.inOut(Easing.quad),
             useNativeDriver: true,
-          })
-        );
-
-        // Rotation
-        animations.push(
+          }),
           Animated.timing(particle.rotation, {
             toValue: particle.rotation._value + Math.random() * 360,
             duration: 1000 + Math.random() * 2000,
             easing: Easing.linear,
             useNativeDriver: true,
-          })
-        );
-
-        // Fade out
-        animations.push(
+          }),
           Animated.timing(particle.opacity, {
             toValue: 0,
             duration: 1000,
             delay: 1000 + Math.random() * 1000,
             easing: Easing.out(Easing.quad),
             useNativeDriver: true,
-          })
-        );
+          }),
+        ];
 
-        // Start all animations in parallel
         Animated.parallel(animations).start();
       });
 
-      // Auto-close after 4 seconds
-      const timer = setTimeout(() => {
-        onClose();
-      }, 4000);
-
+      const timer = setTimeout(() => onClose(), 4000);
       return () => clearTimeout(timer);
     } else {
-      // Reset particles when not visible
       particles.current.forEach((particle) => {
         particle.position.setValue({ x: 0, y: 0 });
         particle.opacity.setValue(0);
@@ -392,13 +375,13 @@ export default function App() {
   useEffect(() => {
     const fetchUnreadCount = async () => {
       if (!currentUserId) return;
-      
+
       const { count } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact' })
-        .eq('status', 'sent')
-        .neq('sender', currentUserId);
-        
+        .from("messages")
+        .select("*", { count: "exact" })
+        .eq("status", "sent")
+        .neq("sender", currentUserId);
+
       setUnreadMessageCount(count || 0);
     };
 
@@ -408,7 +391,6 @@ export default function App() {
   useEffect(() => {
     if (!currentUserId) return;
 
-    // Subscribe to unread message updates
     const unreadSubscription = supabase
       .channel("unread-messages")
       .on(
@@ -422,7 +404,6 @@ export default function App() {
         async (payload) => {
           if (payload.new.sender === currentUserId) return;
 
-          // Get unread count for current user
           const { count } = await supabase
             .from("messages")
             .select("*", { count: "exact" })
@@ -434,7 +415,6 @@ export default function App() {
       )
       .subscribe();
 
-    // Subscribe to message read status updates
     const readStatusSubscription = supabase
       .channel("public:message_read_status")
       .on(
@@ -446,7 +426,6 @@ export default function App() {
           filter: `status=eq.read`,
         },
         async (payload) => {
-          // Only process if message was previously unread
           if (payload.old.status === "sent") {
             setUnreadMessageCount((prev) => Math.max(0, prev - 1));
           }
@@ -460,23 +439,17 @@ export default function App() {
     };
   }, [currentUserId]);
 
-  // Get current user
   useEffect(() => {
     const fetchUser = async () => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (user) {
-        setCurrentUserId(user.id);
-        return user.id;
-      }
-      return null;
+      if (user) setCurrentUserId(user.id);
     };
 
     fetchUser();
   }, []);
 
-  // Realtime like notifications with confetti celebration
   useEffect(() => {
     if (!currentUserId) return;
 
@@ -498,12 +471,8 @@ export default function App() {
               .eq("id", payload.new.sender)
               .single();
 
-            const senderName = error ? "Someone" : sender.full_name;
-
-            // Show confetti celebration
-            setCelebrationSender(senderName);
+            setCelebrationSender(error ? "Someone" : sender.full_name);
             setShowCelebration(true);
-
             setNewLikeCount((prev) => prev + 1);
           }
         }
@@ -517,7 +486,6 @@ export default function App() {
           filter: `receiver=eq.${currentUserId}`,
         },
         (payload) => {
-          // Decrease count when a like is removed
           if (!likesScreenFocusedRef.current && newLikeCount > 0) {
             setNewLikeCount((prev) => Math.max(0, prev - 1));
           }
@@ -528,7 +496,6 @@ export default function App() {
     return () => channel.unsubscribe();
   }, [currentUserId, newLikeCount]);
 
-  // Deep Link Handler
   useEffect(() => {
     const handleDeepLink = (event) => {
       if (event.url.includes("exp+kizzora://payment-result")) {
@@ -540,7 +507,6 @@ export default function App() {
     return () => subscription.remove();
   }, []);
 
-  // Supabase token refresh handling
   useEffect(() => {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -557,12 +523,9 @@ export default function App() {
       }
     );
 
-    return () => {
-      authListener.subscription.unsubscribe();
-    };
+    return () => authListener.subscription.unsubscribe();
   }, []);
 
-  // Handle Likes screen focus
   const handleLikesFocus = useCallback(() => {
     likesScreenFocusedRef.current = true;
     setNewLikeCount(0);
@@ -574,7 +537,6 @@ export default function App() {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      {/* Confetti Celebration Overlay */}
       <ConfettiCelebration
         visible={showCelebration}
         senderName={celebrationSender}
@@ -609,6 +571,7 @@ export default function App() {
           )}
         </Stack.Screen>
         <Stack.Screen name="SearchScreen" component={SearchScreen} />
+        <Stack.Screen name="SearchResults" component={SearchResultsScreen} />
         <Stack.Screen name="ChatScreen" component={ChatScreen} />
         <Stack.Screen
           name="EmailVerification"
@@ -622,6 +585,8 @@ export default function App() {
         <Stack.Screen name="Premium" component={PremiumScreen} />
         <Stack.Screen name="Payment" component={PaymentScreen} />
         <Stack.Screen name="PaymentResult" component={PaymentResultScreen} />
+        <Stack.Screen name="PrivacySettings" component={PrivacySettings} />
+        <Stack.Screen name="AppSettings" component={AppSettings} />
       </Stack.Navigator>
     </NavigationContainer>
   );

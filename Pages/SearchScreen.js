@@ -1,12 +1,13 @@
 // Pages/SearchScreen.js
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView, Switch, TouchableOpacity, Dimensions, Image } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, Switch, TouchableOpacity, Dimensions } from 'react-native';
 import { MaterialIcons, FontAwesome, Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
+import { supabase } from '../lib/supabase'; // Import your Supabase client
 
 const { width } = Dimensions.get('window');
 
-const SearchScreen = () => {
+const SearchScreen = ({ navigation }) => {
   const [searchText, setSearchText] = useState('');
   const [filters, setFilters] = useState({
     ageRange: [18, 35],
@@ -49,6 +50,59 @@ const SearchScreen = () => {
     setSearchText('');
   };
 
+  const applyFilters = async () => {
+    try {
+      // Build the query based on filters
+      let query = supabase
+        .from('profiles')
+        .select('*')
+        .gte('age', filters.ageRange[0].toString())
+        .lte('age', filters.ageRange[1].toString())
+        .ilike('location', `%${filters.location}%`);
+
+      // Gender filter
+      if (filters.gender !== 'any') {
+        query = query.eq('gender', filters.gender);
+      }
+
+      // Interests filter
+      if (filters.interests.length > 0) {
+        const interestConditions = filters.interests.map(interest => 
+          `interests.ilike.%${interest}%`
+        ).join(',');
+        query = query.or(interestConditions);
+      }
+
+      // Online only filter
+      if (filters.onlineOnly) {
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60000).toISOString();
+        query = query.gt('last_login_at', tenMinutesAgo);
+      }
+
+      // Verified only filter
+      if (filters.verifiedOnly) {
+        query = query.eq('is_verified', true); // Assuming you have this column
+      }
+
+      // Text search
+      if (searchText) {
+        query = query.or(
+          `full_name.ilike.%${searchText}%,bio.ilike.%${searchText}%,interests.ilike.%${searchText}%,location.ilike.%${searchText}%`
+        );
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Navigate to results screen with filtered data
+      navigation.navigate('SearchResults', { users: data });
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      alert('Failed to fetch users. Please try again.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -77,19 +131,19 @@ const SearchScreen = () => {
           <Text style={styles.filterTitle}>I'm interested in</Text>
           <View style={styles.genderOptions}>
             <TouchableOpacity 
-              style={[styles.genderButton, filters.gender === 'women' && styles.activeGender]}
-              onPress={() => setFilters({...filters, gender: 'women'})}
+              style={[styles.genderButton, filters.gender === 'female' && styles.activeGender]}
+              onPress={() => setFilters({...filters, gender: 'female'})}
             >
-              <FontAwesome name="female" size={20} color={filters.gender === 'women' ? "#fff" : "#FF5A5F"} />
-              <Text style={[styles.genderText, filters.gender === 'women' && styles.activeGenderText]}>Women</Text>
+              <FontAwesome name="female" size={20} color={filters.gender === 'female' ? "#fff" : "#FF5A5F"} />
+              <Text style={[styles.genderText, filters.gender === 'female' && styles.activeGenderText]}>Women</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={[styles.genderButton, filters.gender === 'men' && styles.activeGender]}
-              onPress={() => setFilters({...filters, gender: 'men'})}
+              style={[styles.genderButton, filters.gender === 'male' && styles.activeGender]}
+              onPress={() => setFilters({...filters, gender: 'male'})}
             >
-              <FontAwesome name="male" size={20} color={filters.gender === 'men' ? "#fff" : "#4A90E2"} />
-              <Text style={[styles.genderText, filters.gender === 'men' && styles.activeGenderText]}>Men</Text>
+              <FontAwesome name="male" size={20} color={filters.gender === 'male' ? "#fff" : "#4A90E2"} />
+              <Text style={[styles.genderText, filters.gender === 'male' && styles.activeGenderText]}>Men</Text>
             </TouchableOpacity>
             
             <TouchableOpacity 
@@ -212,7 +266,7 @@ const SearchScreen = () => {
           <TouchableOpacity style={styles.resetButtonContainer} onPress={resetFilters}>
             <Text style={styles.resetButtonText}>Reset All</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.applyButton}>
+          <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
             <Text style={styles.buttonText}>Apply Filters</Text>
             <MaterialIcons name="arrow-forward" size={20} color="white" />
           </TouchableOpacity>
