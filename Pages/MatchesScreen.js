@@ -10,7 +10,7 @@ import {
   ActivityIndicator,
   TextInput
 } from 'react-native';
-import { MaterialIcons, FontAwesome, Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { MaterialIcons,  MaterialCommunityIcons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 
 const { width } = Dimensions.get('window');

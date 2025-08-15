@@ -1,26 +1,42 @@
 // screens/SignUpScreen.js
 import  { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
 import { supabase } from '../lib/supabase';
 
 export default function SignUpScreen({ navigation }) {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   
-const handleSignUp = async () => {
- 
-  if (!name || !email || !password) return alert('Fill all fields');
-  const { data, error } = await supabase.auth.signUp({ email, password });
-  if (error) alert(error.message);
-  else 
-  navigation.navigate('EmailVerification', { email , password});
-};
+  const handleSignUp = async () => {
+    if (!name || !email || !password) return alert('Please fill all fields');
+    
+    setLoading(true);
+    
+    const { data, error } = await supabase.auth.signUp({ 
+      email, 
+      password,
+      options: {
+        data: {
+          full_name: name
+        }
+      }
+    });
+    
+    if (error) {
+      alert(error.message);
+      setLoading(false);
+    } else {
+      navigation.navigate('EmailVerification', { email, password });
+    }
+  };
 
   return (
-    <KeyboardAvoidingView 
+    <KeyboardAvoidingView
       style={styles.container} 
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
       <View style={styles.header}>
         <Text style={styles.title}>Create Your Love Story ❤️</Text>
@@ -31,51 +47,55 @@ const handleSignUp = async () => {
         <TextInput
           style={styles.input}
           placeholder="Your Name"
-          placeholderTextColor="#a88181"  // Darkened placeholder
+          placeholderTextColor="#a88181"
           value={name}
           onChangeText={setName}
+          editable={!loading}
         />
 
         <TextInput
           style={styles.input}
           placeholder="Your Email"
-          placeholderTextColor="#a88181"  // Darkened placeholder
+          placeholderTextColor="#a88181"
           keyboardType="email-address"
           autoCapitalize="none"
           value={email}
           onChangeText={setEmail}
+          editable={!loading}
         />
        
-
         <TextInput
           style={styles.input}
           placeholder="Your Secret Key"
-          placeholderTextColor="#a88181"  // Darkened placeholder
+          placeholderTextColor="#a88181"
           secureTextEntry
           value={password}
           onChangeText={setPassword}
+          editable={!loading}
         />
 
-
-        <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-          <Text style={styles.buttonText}>Continue Your Journey</Text>
+        <TouchableOpacity 
+          style={[styles.button, loading && styles.buttonDisabled]} 
+          onPress={handleSignUp}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Continue Your Journey</Text>
+          )}
         </TouchableOpacity>
-
-      
       </View>
 
-        <TouchableOpacity 
-          onPress={() => {
-    
-    navigation.navigate('Login');
-  }}
-
-          style={styles.loginLink}
-        >
-          <Text style={styles.linkText}>
-            Already have a love story? <Text style={styles.linkHighlight}>Log In</Text>
-          </Text>
-        </TouchableOpacity>
+      <TouchableOpacity 
+        onPress={() => navigation.navigate('Login')}
+        style={styles.loginLink}
+        disabled={loading}
+      >
+        <Text style={[styles.linkText, loading && styles.linkDisabled]}>
+          Already have a love story? <Text style={styles.linkHighlight}>Log In</Text>
+        </Text>
+      </TouchableOpacity>
 
       <View style={styles.footer}>
         <Text style={styles.quote}>"Love recognizes no barriers."</Text>
@@ -100,13 +120,13 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#c24e4e',  // Slightly darker red
+    color: '#c24e4e',
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   subtitle: {
     fontSize: 18,
-    color: '#b37676',  // Darker pink
+    color: '#b37676',
     marginBottom: 15,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
@@ -120,7 +140,7 @@ const styles = StyleSheet.create({
     padding: 18,
     fontSize: 16,
     marginBottom: 25,
-    color: '#6d4141',  // Darker text color
+    color: '#6d4141',
     borderWidth: 1,
     borderColor: '#f8e0e0',
     shadowColor: '#f5d0d9',
@@ -140,6 +160,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 6,
     elevation: 7,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   buttonText: {
     textAlign: 'center',
@@ -151,17 +173,23 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
   loginLink: {
     marginTop: 15,
     alignSelf: 'center',
   },
   linkText: {
     textAlign: 'center',
-    color: '#a88181',  // Darker gray-pink
+    color: '#a88181',
     fontSize: 16,
   },
+  linkDisabled: {
+    opacity: 0.5,
+  },
   linkHighlight: {
-    color: '#c24e4e',  // Matching title color
+    color: '#c24e4e',
     fontWeight: '600',
     textDecorationLine: 'underline',
   },
@@ -173,13 +201,13 @@ const styles = StyleSheet.create({
   },
   quote: {
     fontStyle: 'italic',
-    color: '#b37676',  // Matching subtitle color
+    color: '#b37676',
     fontSize: 16,
     textAlign: 'center',
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
   },
   author: {
-    color: '#b37676',  // Matching subtitle color
+    color: '#b37676',
     fontSize: 14,
     marginTop: 8,
     fontFamily: Platform.OS === 'ios' ? 'Georgia' : 'serif',
