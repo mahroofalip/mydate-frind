@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/kizzora.iml" filepath="$PROJECT_DIR$/.idea/kizzora.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/zingo.iml" filepath="$PROJECT_DIR$/.idea/zingo.iml" />
     </modules>
   </component>
 </project>

@@ -126,6 +126,9 @@ export default function HomeScreen({ navigation }) {
   const [sending, setSending] = useState(false);
   const [likedProfiles, setLikedProfiles] = useState(new Set());
   const listRef = useRef(null);
+  
+  // NEW: Track loading state for like buttons
+  const [likeLoading, setLikeLoading] = useState({});
 
   // Fetch current user
   useEffect(() => {
@@ -314,6 +317,9 @@ export default function HomeScreen({ navigation }) {
   const toggleLike = async (profile) => {
     if (!currentUser) return;
 
+    // Set loading state for this profile
+    setLikeLoading(prev => ({ ...prev, [profile.id]: true }));
+    
     const isLiked = likedProfiles.has(profile.id);
     const newLikedProfiles = new Set(likedProfiles);
 
@@ -390,6 +396,9 @@ export default function HomeScreen({ navigation }) {
         "Error",
         error.message || `Failed to ${isLiked ? "unlike" : "like"}`
       );
+    } finally {
+      // Clear loading state for this profile
+      setLikeLoading(prev => ({ ...prev, [profile.id]: false }));
     }
   };
 
@@ -438,6 +447,7 @@ export default function HomeScreen({ navigation }) {
   const renderItem = ({ item }) => {
     const onlineStatus = getOnlineStatusStyle(item);
     const isLiked = likedProfiles.has(item.id);
+    const isLoading = likeLoading[item.id]; // Check if this profile's like is loading
 
     return (
       <View style={styles.cardContainer}>
@@ -453,14 +463,23 @@ export default function HomeScreen({ navigation }) {
           />
           <View style={styles.headerIcons}>
             <TouchableOpacity
-              style={styles.iconButton}
+              style={[
+                styles.iconButton,
+                isLoading && styles.iconButtonLoading,
+                isLiked && styles.iconButtonLiked
+              ]}
               onPress={() => toggleLike(item)}
+              disabled={isLoading}
             >
-              <AntDesign
-                name={isLiked ? "heart" : "hearto"}
-                size={28}
-                color={isLiked ? "#FF5A5F" : "white"}
-              />
+              {isLoading ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <AntDesign
+                  name={isLiked ? "heart" : "hearto"}
+                  size={28}
+                  color={isLiked ? "#FF5A5F" : "white"}
+                />
+              )}
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.iconButton}
@@ -646,6 +665,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 10,
+  },
+  // NEW: Styles for like button states
+  iconButtonLoading: {
+    backgroundColor: "rgba(255,90,95,0.7)",
+  },
+  iconButtonLiked: {
+    backgroundColor: "rgba(255,90,95,0.4)",
   },
   infoSection: {
     position: "absolute",

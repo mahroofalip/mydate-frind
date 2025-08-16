@@ -98,11 +98,11 @@ function MainTabs({
                   size={size}
                   color={color}
                 />
-                {unreadMessageCount > 0 && (
+                {/* {unreadMessageCount > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>{unreadMessageCount}</Text>
                   </View>
-                )}
+                )} */}
               </View>
             );
           } else if (route.name === "Likes") {
@@ -501,7 +501,7 @@ export default function App() {
 
   useEffect(() => {
     const handleDeepLink = (event) => {
-      if (event.url.includes("exp+kizzora://payment-result")) {
+      if (event.url.includes("exp+zingo://payment-result")) {
         navigationRef.navigate("PaymentResult");
       }
     };

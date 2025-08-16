@@ -84,7 +84,7 @@
           "amount": 238800,
           "amount_paid": 238800,
           "callback_method": "get",
-          "callback_url": "exp+kizzora://payment-result/Annual",
+          "callback_url": "exp+zingo://payment-result/Annual",
           "cancelled_at": 0,
           "created_at": 1753516010,
           "currency": "INR",

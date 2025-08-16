@@ -42,7 +42,7 @@ export default function PaymentScreen({ navigation, route }) {
     setIsProcessing(true);
 
     try {
-      const deepLinkUrl = `exp+kizzora://payment-result`;
+      const deepLinkUrl = `exp+zingo://payment-result`;
       const paymentLink = await generateRazorpayPaymentLink(
         selectedPlan.amount,
         user.email,

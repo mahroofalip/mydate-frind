@@ -1,27 +1,33 @@
 {
   "expo": {
-    "name": "kizzora",
-    "slug": "kizzora",
+    "name": "Zingo",
+    "slug": "zingo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "ios": { "supportsTablet": true },
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/kizzora_icon.png",
+        "foregroundImage": "./assets/zingo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mahroof.friendshipapp"
+      "package": "com.mahroof.friendshipapp",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
     "extra": {
       "eas": {
-        "projectId": "545df850-a213-46f0-a35e-09ff9ad0fded"
+        "projectId": "05a90cd2-9492-4041-a343-43388971e7fa"
       }
     },
     "plugins": [
@@ -30,7 +36,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/kizzora_icon.png",
+          "image": "./assets/zingo.png",
           "resizeMode": "contain",
           "backgroundColor": "#ffffff"
         }
