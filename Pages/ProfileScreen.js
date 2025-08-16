@@ -41,6 +41,47 @@ export default function ProfileScreen({ navigation }) {
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [deleteFeedback, setDeleteFeedback] = useState("");
+  const [isUpgradeEnabled, setIsUpgradeEnabled] = useState(false);
+
+
+
+// Fetch app settings with real-time subscription
+  useEffect(() => {
+    
+
+    // Initial fetch
+    const fetchAppSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'upgrade_banner_enabled')
+          .single();
+
+        if (error) throw error;
+        console.log("App settings fetched:", data);
+        
+        setIsUpgradeEnabled(data?.value );
+      } catch (error) {
+        console.error("Failed to fetch app settings:", error);
+        // setIsUpgradeEnabled(true); // Default to enabled
+      }
+    };
+
+    fetchAppSettings();
+
+    // Real-time subscription
+    
+    
+  }, [isUpgradeEnabled]);
+
+
+
+
+
+
+
+
 
   const [settings, setSettings] = useState({
     notifications: true,
@@ -424,7 +465,7 @@ export default function ProfileScreen({ navigation }) {
                 <MaterialIcons name="location-on" size={16} color="#FF5A5F" />
                 <Text style={styles.location}>{location}</Text>
               </View>
-              {!isPremium && (
+              {isUpgradeEnabled &&  !isPremium && (
                 <TouchableOpacity
                   style={styles.upgradeButton}
                   onPress={handleUpgrade}
@@ -489,7 +530,7 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </View>
 
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account Settings</Text>
 
           <TouchableOpacity
@@ -509,9 +550,9 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.settingText}>App Settings</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
-        </View>
+        </View> */}
 
-        <View style={styles.section}>
+        {/* <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
 
           <TouchableOpacity
@@ -540,7 +581,7 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.settingText}>Safety Tips</Text>
             <MaterialIcons name="chevron-right" size={24} color="#888" />
           </TouchableOpacity>
-        </View>
+        </View> */}
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutText}>Log Out</Text>

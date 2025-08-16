@@ -493,9 +493,9 @@ export default function HomeScreen({ navigation }) {
               <Text style={styles.name}>
                 {item.name}, {item.age}
               </Text>
-              <View style={styles.matchBadge}>
+              {/* <View style={styles.matchBadge}>
                 <Text style={styles.matchText}>{item.match}</Text>
-              </View>
+              </View> */}
             </View>
             <Text style={styles.place}>
               {item.place} • {item.distance}

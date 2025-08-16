@@ -169,9 +169,9 @@ export default function ProfileDetailScreen({ route, navigation }) {
         <View style={styles.content}>
           <View style={styles.nameRow}>
             <Text style={styles.name}>{profile.name}, {profile.age}</Text>
-            <View style={styles.matchBadge}>
+            {/* <View style={styles.matchBadge}>
               <Text style={styles.matchText}>{profile.match}</Text>
-            </View>
+            </View> */}
           </View>
           
           <View style={styles.infoRow}>

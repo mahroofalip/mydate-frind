@@ -15,6 +15,7 @@ import { supabase } from "../lib/supabase";
 import { useFocusEffect } from "@react-navigation/native";
 import { useIsFocused } from "@react-navigation/native";
 import { useNavigation } from "@react-navigation/native";
+
 const LikesScreen = ({ onFocus, onBlur, resetBadge }) => {
   const navigation = useNavigation();
   const isFocused = useIsFocused();
@@ -26,6 +27,37 @@ const LikesScreen = ({ onFocus, onBlur, resetBadge }) => {
   const [isPremium, setIsPremium] = useState(false);
   const [ignoredProfiles, setIgnoredProfiles] = useState(new Set());
   const [newLikesCount, setNewLikesCount] = useState(0);
+  const [isUpgradeEnabled, setIsUpgradeEnabled] = useState(false);
+
+  // Fetch app settings with real-time subscription
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Initial fetch
+    const fetchAppSettings = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select('value')
+          .eq('key', 'upgrade_banner_enabled')
+          .single();
+
+        if (error) throw error;
+        console.log("App settings fetched:", data);
+        
+        setIsUpgradeEnabled(data?.value );
+      } catch (error) {
+        console.error("Failed to fetch app settings:", error);
+        // setIsUpgradeEnabled(true); // Default to enabled
+      }
+    };
+
+    fetchAppSettings();
+
+    // Real-time subscription
+    
+    
+  }, [currentUser,isUpgradeEnabled]);
 
   // Handle focus events for badge reset
   useFocusEffect(
@@ -540,7 +572,7 @@ const LikesScreen = ({ onFocus, onBlur, resetBadge }) => {
       )}
 
       {/* Premium banner */}
-      {!isPremium && (
+      { isUpgradeEnabled && !isPremium && (
         <View style={styles.premiumBanner}>
           <MaterialCommunityIcons name="crown" size={24} color="#FFD700" />
           <Text style={styles.premiumText}>See who likes you with Premium</Text>
@@ -555,6 +587,8 @@ const LikesScreen = ({ onFocus, onBlur, resetBadge }) => {
     </Animated.View>
   );
 };
+
+
 
 const styles = StyleSheet.create({
   loadingContainer: {
