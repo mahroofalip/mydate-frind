@@ -23,15 +23,15 @@ import { supabase } from '../lib/supabase';
 const { width } = Dimensions.get('window');
 
 export default function ProfileSetupScreen({ navigation }) {
-  const [name, setName] = useState('mahroof');
-  const [bio, setBio] = useState('my name is mahroof');
-  const [age, setAge] = useState('34');
-  const [gender, setGender] = useState('male');
-  const [location, setLocation] = useState('manjeri');
-  const [occupation, setOccupation] = useState('software engineer');
-  const [education, setEducation] = useState('phd');
-  const [interests, setInterests] = useState('films, music, sports');
-  const [lookingFor, setLookingFor] = useState('female');
+  const [name, setName] = useState('');
+  const [bio, setBio] = useState('');
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [location, setLocation] = useState('');
+  const [occupation, setOccupation] = useState('');
+  const [education, setEducation] = useState('');
+  const [interests, setInterests] = useState('');
+  const [lookingFor, setLookingFor] = useState('');
   const [profilePic, setProfilePic] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -64,7 +64,7 @@ export default function ProfileSetupScreen({ navigation }) {
     const options = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect: forSelfie ? [1, 1] : [4, 3],
+      aspect: forSelfie ? [1, 2] : [1, 2],
       quality: 0.7,
     };
 

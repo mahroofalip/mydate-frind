@@ -43,7 +43,7 @@ const LikesScreen = ({ onFocus, onBlur, resetBadge }) => {
           .single();
 
         if (error) throw error;
-        console.log("App settings fetched:", data);
+        // console.log("App settings fetched:", data);
         
         setIsUpgradeEnabled(data?.value );
       } catch (error) {

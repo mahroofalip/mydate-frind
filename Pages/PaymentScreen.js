@@ -77,9 +77,9 @@ export default function PaymentScreen({ navigation, route }) {
 const prefix = user.id.replace(/-/g, "").slice(0, 8); 
 const suffix = Date.now().toString().slice(-6);  
 const referenceId = `${prefix}-${suffix}`; // ~15 chars
-    console.log("Reference ID:", referenceId);
-    console.log(referenceId.length, "Reference ID Length");
-    console.log(user.id.length, "User ID Length");
+    // console.log("Reference ID:", referenceId);
+    // console.log(referenceId.length, "Reference ID Length");
+    // console.log(user.id.length, "User ID Length");
     
     
     // 2️⃣ Insert pending record into Supabase

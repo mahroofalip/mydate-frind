@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
+import { Buffer } from 'buffer';
 import { MaterialIcons, Feather, Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 
@@ -31,12 +33,11 @@ export default function ProfileUpdateScreen({ navigation }) {
   const [education, setEducation] = useState('');
   const [interests, setInterests] = useState('');
   const [lookingFor, setLookingFor] = useState('');
-  const [profilePic, setProfilePic] = useState(null); // Added profile picture state
+  const [profilePic, setProfilePic] = useState(null);
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [errors, setErrors] = useState({});
-  const [aspect] = useState([10, 14]);
   
   const scrollViewRef = useRef();
 
@@ -64,7 +65,7 @@ export default function ProfileUpdateScreen({ navigation }) {
           setEducation(profile.education || '');
           setInterests(profile.interests || '');
           setLookingFor(profile.looking_for || '');
-          setProfilePic(profile.selfie_url || null); // Set profile picture
+          setProfilePic(profile.selfie_url || null);
           setExtraImages(profile.extra_images ? profile.extra_images.split(',') : []);
         }
       } catch (err) {
@@ -82,7 +83,7 @@ export default function ProfileUpdateScreen({ navigation }) {
     const newErrors = {};
     
     if (!name.trim()) newErrors.name = 'Name is required';
-    if (!profilePic) newErrors.profilePic = 'Profile Image is required'; // Added validation
+    if (!profilePic) newErrors.profilePic = 'Profile Image is required';
     if (!age) newErrors.age = 'Age is required';
     if (age && (parseInt(age) < 18 || parseInt(age) > 100)) 
       newErrors.age = 'Age must be between 18-100';
@@ -96,23 +97,30 @@ export default function ProfileUpdateScreen({ navigation }) {
 
   // Handle image selection
   const handleImageSelection = async (forSelfie = false) => {
+    // Request permissions
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'We need access to your photos');
+      return;
+    }
+
     const options = {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      aspect,
+      aspect: [1, 1],
       quality: 0.7,
     };
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync(options);
       
-      if (!result.canceled) {
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const uri = result.assets[0].uri;
         
         if (forSelfie) {
           setProfilePic(uri);
         } else if (extraImages.length < 4) {
-          setExtraImages([...extraImages, uri]);
+          setExtraImages(prev => [...prev, uri]);
         }
       }
     } catch (error) {
@@ -122,9 +130,42 @@ export default function ProfileUpdateScreen({ navigation }) {
 
   // Remove extra image
   const removeExtraImage = (index) => {
-    const newImages = [...extraImages];
-    newImages.splice(index, 1);
-    setExtraImages(newImages);
+    setExtraImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Fixed uploadImage function
+  const uploadImage = async (fileUri, fileName) => {
+    try {
+      // Read file as base64 string
+      const base64Data = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Convert to Uint8Array
+      const buffer = Buffer.from(base64Data, 'base64');
+      const uintArray = new Uint8Array(buffer);
+
+      // Upload binary data
+      const { error } = await supabase.storage
+        .from('profile-photos')
+        .upload(fileName, uintArray, {
+          contentType: 'image/jpeg',
+          upsert: true,
+          cacheControl: '3600',
+        });
+
+      if (error) throw error;
+
+      // Get public URL
+      const { data } = supabase.storage
+        .from('profile-photos')
+        .getPublicUrl(fileName);
+
+      return data.publicUrl;
+    } catch (err) {
+      console.error('Upload failed:', err);
+      throw new Error('Image upload failed. Please try again.');
+    }
   };
   
   const handleUpdate = async () => {
@@ -141,53 +182,32 @@ export default function ProfileUpdateScreen({ navigation }) {
 
       // Handle profile picture upload
       let selfieUrl = profilePic;
-      if (profilePic && profilePic.startsWith('file')) {
-        const fileExt = profilePic.split('.').pop();
+      if (profilePic && !profilePic.startsWith('https://')) {
+        const fileExt = profilePic.split('.').pop() || 'jpg';
         const fileName = `${user.id}/selfie_${Date.now()}.${fileExt}`;
-        const { error: uploadErr } = await supabase.storage
-          .from('profile-photos')
-          .upload(fileName, {
-            uri: profilePic,
-            type: 'image/jpeg',
-            name: fileName,
-          }, { upsert: true });
-
-        if (uploadErr) throw uploadErr;
-        
-        const { data } = supabase.storage
-          .from('profile-photos')
-          .getPublicUrl(fileName);
-        
-        selfieUrl = data.publicUrl;
+        selfieUrl = await uploadImage(profilePic, fileName);
       }
 
       // Handle extra images
-      const uploadedExtraUrls = [...extraImages];
-      
+      const uploadedExtraUrls = [];
       for (let i = 0; i < extraImages.length; i++) {
         const uri = extraImages[i];
         
-        // Only upload new images (local URIs)
-        if (uri.startsWith('file')) {
-          const fileExt = uri.split('.').pop();
+        if (uri.startsWith('https://')) {
+          // Already a URL, keep as is
+          uploadedExtraUrls.push(uri);
+        } else {
+          // Upload new local image
+          const fileExt = uri.split('.').pop() || 'jpg';
           const fileName = `${user.id}/extra_${Date.now()}_${i}.${fileExt}`;
-          const { error: extraErr } = await supabase.storage
-            .from('profile-photos')
-            .upload(fileName, {
-              uri,
-              type: 'image/jpeg',
-              name: fileName,
-            });
-
-          if (!extraErr) {
-            const { data: urlData } = supabase.storage
-              .from('profile-photos')
-              .getPublicUrl(fileName);
-            
-            // Replace local URI with public URL
-            uploadedExtraUrls[i] = urlData.publicUrl;
-          }
+          const url = await uploadImage(uri, fileName);
+          uploadedExtraUrls.push(url);
         }
+      }
+
+      if (!selfieUrl) {
+        Alert.alert('Error', 'Profile image upload failed');
+        return;
       }
 
       // Update profile
@@ -201,7 +221,7 @@ export default function ProfileUpdateScreen({ navigation }) {
         education,
         interests: interests.split(',').map(i => i.trim()).join(','),
         looking_for: lookingFor,
-        selfie_url: selfieUrl, // Include profile picture URL
+        selfie_url: selfieUrl,
         extra_images: uploadedExtraUrls.join(','),
       };
 
@@ -215,7 +235,7 @@ export default function ProfileUpdateScreen({ navigation }) {
       Alert.alert('Success', 'Profile updated successfully!');
       navigation.replace('ProfileScreen');
     } catch (err) {
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', err.message || 'Failed to update profile');
     } finally {
       setUpdating(false);
     }
@@ -243,7 +263,6 @@ export default function ProfileUpdateScreen({ navigation }) {
       </View>
       
       <View style={styles.photoSection}>
-        {/* Added Profile Picture Section */}
         <Text style={styles.label}>Profile Picture</Text>
         <TouchableOpacity 
           onPress={() => handleImageSelection(true)} 
@@ -263,7 +282,7 @@ export default function ProfileUpdateScreen({ navigation }) {
         <Text style={styles.label}>Additional Photos (up to 4)</Text>
         <View style={styles.photosWrapper}>
           {extraImages.map((img, index) => (
-            <View key={index} style={styles.photoContainer}>
+            <View key={`img-${index}-${Date.now()}`} style={styles.photoContainer}>
               <Image source={{ uri: img }} style={styles.photo} />
               <TouchableOpacity 
                 style={styles.removePhoto}
@@ -482,6 +501,7 @@ export default function ProfileUpdateScreen({ navigation }) {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 60 : 0}
     >
       <ScrollView 
         ref={scrollViewRef}
