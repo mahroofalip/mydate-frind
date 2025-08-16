@@ -593,6 +593,7 @@ export default function App() {
         <Stack.Screen name="HelpCenter" component={HelpCenterScreen} />
         <Stack.Screen name="ContactSupport" component={ContactSupportScreen} />
         <Stack.Screen name="SafetyTips" component={SafetyTipsScreen} />
+        <Stack.Screen name="payment-result" component={PaymentResultScreen} />
 
       </Stack.Navigator>
     </NavigationContainer>
