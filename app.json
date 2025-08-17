@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Zingo",
+    "name": "zingo",
     "slug": "zingo",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon",
+    "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "ios": {
@@ -16,7 +16,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.mahroof.friendshipapp",
+      "package": "com.mahroof.zingo",
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
@@ -27,7 +27,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "05a90cd2-9492-4041-a343-43388971e7fa"
+        "projectId": "7eefe04b-0623-4d40-9554-f9ad45c28967"
       }
     },
     "plugins": [

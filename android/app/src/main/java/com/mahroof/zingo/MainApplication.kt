@@ -1,4 +1,4 @@
-package com.mahroof.friendshipapp
+package com.mahroof.zingo
 
 import android.app.Application
 import android.content.res.Configuration

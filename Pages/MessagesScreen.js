@@ -14,7 +14,7 @@ import { supabase } from '../lib/supabase';
 import moment from 'moment';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 
-export default function MessagesScreen({  setUnreadMessageCount }) {
+export default function MessagesScreen({ setUnreadMessageCount }) {
   const navigation = useNavigation();
   const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
@@ -61,7 +61,7 @@ export default function MessagesScreen({  setUnreadMessageCount }) {
     return msgTime.format('MMM D');
   }, []);
 
-  // Fetch conversations
+  // Fetch conversations with corrected relationships
   const fetchConversations = useCallback(async () => {
     if (!currentUser) return;
     
@@ -73,9 +73,9 @@ export default function MessagesScreen({  setUnreadMessageCount }) {
         .select(`
           id,
           created_at,
-          user1:profiles!user1(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
-          user2:profiles!user2(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
-          messages: messages!chat_id(id, content, created_at, sender, status)
+          user1:profiles!chats_user1_fkey(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
+          user2:profiles!chats_user2_fkey(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
+          messages: messages!messages_chat_id_fkey(id, content, created_at, sender, status)
         `)
         .or(`user1.eq.${currentUser.id},user2.eq.${currentUser.id}`)
         .order('created_at', { ascending: false });
@@ -113,7 +113,7 @@ export default function MessagesScreen({  setUnreadMessageCount }) {
           image: otherUser.selfie_url,
           userId: otherUser.id,
           online: checkOnlineStatus(otherUser),
-          premium: false
+          premium: otherUser.is_premium || false
         };
       }));
 
@@ -136,7 +136,7 @@ export default function MessagesScreen({  setUnreadMessageCount }) {
     if (isFocused) {
       timeoutId = setTimeout(() => {
         fetchConversations();
-      }, 300); // 300ms delay
+      }, 300);
     }
 
     // Real-time subscriptions
@@ -399,17 +399,15 @@ export default function MessagesScreen({  setUnreadMessageCount }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F8F9FA',
+    paddingHorizontal: 16,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 16,
     paddingTop: 50,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    paddingBottom: 20,
   },
   headerTitle: {
     fontSize: 28,
@@ -418,24 +416,23 @@ const styles = StyleSheet.create({
   },
   headerIcons: {
     flexDirection: 'row',
-    gap: 15,
   },
   iconButton: {
-    padding: 5,
+    marginLeft: 15,
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 30,
-    margin: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    elevation: 2,
+    backgroundColor: '#FFF',
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    marginBottom: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 1,
+    elevation: 2,
   },
   searchIcon: {
     marginRight: 10,
@@ -448,20 +445,19 @@ const styles = StyleSheet.create({
   tabContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    backgroundColor: '#fff',
+    marginBottom: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingVertical: 10,
+    borderBottomColor: '#EEE',
+    paddingBottom: 10,
   },
   tabButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 15,
     paddingVertical: 8,
-    paddingHorizontal: 16,
     borderRadius: 20,
+    position: 'relative',
   },
   activeTab: {
-    backgroundColor: '#FF5A5F20',
+    backgroundColor: '#FF5A5F',
   },
   tabText: {
     fontSize: 16,
@@ -469,39 +465,35 @@ const styles = StyleSheet.create({
     color: '#888',
   },
   activeTabText: {
-    color: '#FF5A5F',
+    color: '#FFF',
   },
   tabBadge: {
+    position: 'absolute',
+    top: -5,
+    right: 0,
     backgroundColor: '#FF5A5F',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 5,
+    paddingHorizontal: 5,
   },
   tabBadgeText: {
-    color: 'white',
+    color: '#FFF',
     fontSize: 12,
     fontWeight: 'bold',
   },
   listContent: {
-    padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 20,
   },
   conversationItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
   },
   conversationLeft: {
     flexDirection: 'row',
@@ -510,31 +502,32 @@ const styles = StyleSheet.create({
   },
   avatarContainer: {
     position: 'relative',
-    marginRight: 16,
+    marginRight: 15,
   },
   avatar: {
     width: 60,
     height: 60,
     borderRadius: 30,
+    backgroundColor: '#EEE',
   },
   onlineIndicator: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 14,
-    height: 14,
-    borderRadius: 7,
+    bottom: 5,
+    right: 5,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: '#4CAF50',
     borderWidth: 2,
-    borderColor: '#fff',
+    borderColor: '#FFF',
   },
   premiumBadge: {
     position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#333',
+    top: 0,
+    right: 0,
+    backgroundColor: '#FFF',
     borderRadius: 10,
-    padding: 3,
+    padding: 2,
   },
   conversationInfo: {
     flex: 1,
@@ -547,7 +540,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   premiumIcon: {
     marginLeft: 5,
@@ -558,7 +551,7 @@ const styles = StyleSheet.create({
   },
   unreadMessage: {
     color: '#333',
-    fontWeight: '600',
+    fontWeight: '500',
   },
   conversationRight: {
     alignItems: 'flex-end',
@@ -566,7 +559,7 @@ const styles = StyleSheet.create({
   timeText: {
     fontSize: 13,
     color: '#888',
-    marginBottom: 8,
+    marginBottom: 5,
   },
   unreadBadge: {
     backgroundColor: '#FF5A5F',
@@ -577,7 +570,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   unreadText: {
-    color: 'white',
+    color: '#FFF',
     fontSize: 12,
     fontWeight: 'bold',
   },
@@ -585,45 +578,43 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    paddingBottom: 100,
   },
   emptyIcon: {
     marginBottom: 20,
   },
   emptyTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 10,
-    textAlign: 'center',
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#888',
     textAlign: 'center',
     marginBottom: 30,
-    lineHeight: 24,
+    paddingHorizontal: 40,
   },
   findButton: {
     backgroundColor: '#FF5A5F',
-    borderRadius: 30,
-    paddingVertical: 15,
-    paddingHorizontal: 40,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+    borderRadius: 25,
   },
   findButtonText: {
-    color: 'white',
-    fontWeight: 'bold',
+    color: '#FFF',
     fontSize: 16,
+    fontWeight: '600',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8f9fa',
   },
   loadingText: {
     marginTop: 15,
-    color: '#FF5A5F',
     fontSize: 16,
+    color: '#888',
   },
 });

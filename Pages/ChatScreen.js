@@ -22,8 +22,7 @@ import moment from 'moment';
 import { useNavigation } from '@react-navigation/native';
 
 export default function ChatScreen({ route }) {
-      const navigation = useNavigation();
-    
+  const navigation = useNavigation();
   const { conversation, onMessagesRead } = route.params;
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -37,26 +36,46 @@ export default function ChatScreen({ route }) {
   const flatListRef = useRef(null);
   const lastSentMessageRef = useRef(null);
 
+  // Fetch current user
+  useEffect(() => {
+    const fetchUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      setCurrentUser(user);
+      return user;
+    };
+
+    fetchUser();
+  }, []);
+
   // Mark messages as read when screen is focused
   const markAsRead = useCallback(async () => {
     if (!conversation || !currentUser) return;
 
     // Mark all unread messages as read
-    const { data: unreadMessages } = await supabase
+    const { data: unreadMessages, error } = await supabase
       .from('messages')
       .select('id')
       .eq('chat_id', conversation.id)
       .eq('status', 'sent')
       .neq('sender', currentUser.id);
 
+    if (error) {
+      console.error('Error fetching unread messages:', error);
+      return;
+    }
+
     if (unreadMessages?.length > 0) {
       const messageIds = unreadMessages.map(m => m.id);
       
       // Update status to 'read' in bulk
-      await supabase
+      const { error: updateError } = await supabase
         .from('messages')
         .update({ status: 'read' })
         .in('id', messageIds);
+
+      if (updateError) {
+        console.error('Error updating message status:', updateError);
+      }
 
       // Notify parent component to update global unread count
       if (onMessagesRead) {
@@ -77,17 +96,6 @@ export default function ChatScreen({ route }) {
     return unsubscribe;
   }, [conversation, currentUser, markAsRead, navigation]);
 
-  // Fetch current user
-  useEffect(() => {
-    const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setCurrentUser(user);
-      return user;
-    };
-
-    fetchUser();
-  }, []);
-
   // Format message consistently
   const formatMessage = useCallback((msg) => ({
     id: msg.id,
@@ -96,7 +104,27 @@ export default function ChatScreen({ route }) {
     sender: msg.sender === currentUser?.id ? 'user' : 'recipient',
     type: msg.type,
     status: msg.status
-  }), [currentUser]);
+  }), [currentUser, formatTime]);
+
+  // Format time helper
+  const formatTime = useCallback((dateString) => {
+    return moment(dateString).format('h:mm A');
+  }, []);
+
+  // Check online status
+  const checkOnlineStatus = useCallback((profile) => {
+    if (!profile?.last_login_at) return false;
+    
+    const now = new Date();
+    const lastLogin = new Date(profile.last_login_at);
+    const lastLogout = profile.last_logout_at ? new Date(profile.last_logout_at) : null;
+    const expiresAt = profile.session_expires_at ? new Date(profile.session_expires_at) : null;
+
+    return (
+      (!lastLogout || lastLogin > lastLogout) &&
+      (!expiresAt || expiresAt > now)
+    );
+  }, []);
 
   // Fetch messages and setup subscriptions
   useEffect(() => {
@@ -178,25 +206,7 @@ export default function ChatScreen({ route }) {
     return () => {
       messagesSubscription.unsubscribe();
     };
-  }, [conversation, currentUser, formatMessage]);
-
-  const checkOnlineStatus = (profile) => {
-    if (!profile.last_login_at) return false;
-    
-    const now = new Date();
-    const lastLogin = new Date(profile.last_login_at);
-    const lastLogout = profile.last_logout_at ? new Date(profile.last_logout_at) : null;
-    const expiresAt = profile.session_expires_at ? new Date(profile.session_expires_at) : null;
-
-    return (
-      (!lastLogout || lastLogin > lastLogout) &&
-      (!expiresAt || expiresAt > now)
-    );
-  };
-
-  const formatTime = (dateString) => {
-    return moment(dateString).format('h:mm A');
-  };
+  }, [conversation, currentUser, formatMessage, checkOnlineStatus]);
 
   const toggleEmojiPicker = () => {
     setShowEmojiPicker(!showEmojiPicker);
@@ -371,7 +381,7 @@ export default function ChatScreen({ route }) {
                   </View>
                 ) : (
                   <Image
-                    source={{ uri: conversation.image  }}
+                    source={{ uri: conversation.image || 'https://via.placeholder.com/150' }}
                     style={styles.avatar}
                     onError={() => setAvatarError(true)}
                   />
@@ -498,38 +508,34 @@ export default function ChatScreen({ route }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f0f2f5',
-    paddingTop: 40,
-    paddingBottom: 40
+    backgroundColor: '#F8F9FA',
   },
   container: {
     flex: 1,
+    backgroundColor: '#F8F9FA',
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 15,
-    backgroundColor: 'white',
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    borderBottomColor: '#EEE',
+    backgroundColor: '#FFF',
+  },
+  backButton: {
+    padding: 5,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
-    marginLeft: 10,
   },
   avatar: {
     width: 45,
     height: 45,
-    borderRadius: 22.5,
-    marginRight: 12,
+    borderRadius: 25,
+    marginRight: 15,
   },
   avatarPlaceholder: {
     backgroundColor: '#FF5A5F',
@@ -546,42 +552,48 @@ const styles = StyleSheet.create({
   },
   status: {
     fontSize: 14,
-    marginTop: 2,
-  },
-  backButton: {
-    padding: 5,
   },
   menuButton: {
     padding: 5,
-    marginLeft: 10,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 15,
+    fontSize: 16,
+    color: '#888',
   },
   messagesContainer: {
-    padding: 16,
+    padding: 15,
     paddingTop: 10,
   },
   messageBubble: {
     maxWidth: '80%',
     padding: 12,
     borderRadius: 18,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   userBubble: {
-    backgroundColor: '#FF5A5F',
     alignSelf: 'flex-end',
-    borderBottomRightRadius: 4,
+    backgroundColor: '#FF5A5F',
+    borderBottomRightRadius: 2,
   },
   recipientBubble: {
-    backgroundColor: 'white',
     alignSelf: 'flex-start',
-    borderBottomLeftRadius: 4,
-    elevation: 1,
+    backgroundColor: '#FFF',
+    borderBottomLeftRadius: 2,
+    borderWidth: 1,
+    borderColor: '#EEE',
   },
   failedMessage: {
-    backgroundColor: '#f8d7da',
-    borderColor: '#f5c6cb',
+    backgroundColor: '#FFE6E6',
+    borderColor: '#FFCCCC',
   },
   userText: {
-    color: 'white',
+    color: '#FFF',
     fontSize: 16,
   },
   recipientText: {
@@ -590,80 +602,52 @@ const styles = StyleSheet.create({
   },
   timeContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'flex-end',
-    marginTop: 4,
+    alignItems: 'center',
+    marginTop: 5,
   },
   userTime: {
-    color: '#ffffffaa',
+    color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
     marginLeft: 5,
   },
   recipientTime: {
-    color: '#666',
+    color: '#888',
     fontSize: 12,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 10,
-    backgroundColor: 'white',
-    borderTopWidth: 1,
-    borderTopColor: '#eee',
-    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
-  },
-  messageInput: {
-    flex: 1,
-    minHeight: 45,
-    maxHeight: 120,
-    backgroundColor: '#f0f2f5',
-    borderRadius: 25,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#333',
-    marginHorizontal: 8,
-  },
-  sendButton: {
-    width: 45,
-    height: 45,
-    borderRadius: 22.5,
-    backgroundColor: '#FF5A5F',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emojiButton: {
-    padding: 8,
+    marginLeft: 5,
   },
   emojiPicker: {
+    position: 'absolute',
+    bottom: 60,
+    left: 0,
+    right: 0,
     height: 250,
-    backgroundColor: 'white',
+    backgroundColor: '#FFF',
     borderTopWidth: 1,
-    borderTopColor: '#eee',
+    borderTopColor: '#EEE',
   },
   emojiCategories: {
     height: 40,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#EEE',
   },
   emojiCategoriesContainer: {
     paddingHorizontal: 10,
   },
   emojiCategory: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
+    padding: 8,
+    marginHorizontal: 5,
   },
   activeEmojiCategory: {
     borderBottomWidth: 2,
     borderBottomColor: '#FF5A5F',
   },
   emojiScroll: {
-    paddingHorizontal: 10,
+    padding: 10,
   },
   emojiRow: {
     justifyContent: 'space-between',
+    marginBottom: 10,
   },
   emojiItem: {
     width: 40,
@@ -674,14 +658,37 @@ const styles = StyleSheet.create({
   emoji: {
     fontSize: 24,
   },
-  loadingContainer: {
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#FFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+  },
+  emojiButton: {
+    padding: 8,
+    marginRight: 5,
+  },
+  messageInput: {
     flex: 1,
+    minHeight: 40,
+    maxHeight: 100,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 20,
+    fontSize: 16,
+    color: '#333',
+  },
+  sendButton: {
+    marginLeft: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FF5A5F',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 15,
-    color: '#FF5A5F',
-    fontSize: 16,
   },
 });

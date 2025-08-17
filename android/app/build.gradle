@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.mahroof.friendshipapp'
+    namespace 'com.mahroof.zingo'
     defaultConfig {
-        applicationId 'com.mahroof.friendshipapp'
+        applicationId 'com.mahroof.zingo'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

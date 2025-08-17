@@ -1,4 +1,4 @@
-package com.mahroof.friendshipapp
+package com.mahroof.zingo
 import expo.modules.splashscreen.SplashScreenManager
 
 import android.os.Build
