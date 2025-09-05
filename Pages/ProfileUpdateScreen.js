@@ -11,9 +11,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Dimensions
+  Dimensions,
+  Modal,
+  FlatList
 } from 'react-native';
-import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
@@ -39,7 +40,27 @@ export default function ProfileUpdateScreen({ navigation }) {
   const [updating, setUpdating] = useState(false);
   const [errors, setErrors] = useState({});
   
+  // Modal states
+  const [showInterestsModal, setShowInterestsModal] = useState(false);
+  const [showGenderModal, setShowGenderModal] = useState(false);
+  const [showOccupationModal, setShowOccupationModal] = useState(false);
+  const [showEducationModal, setShowEducationModal] = useState(false);
+  const [showLookingForModal, setShowLookingForModal] = useState(false);
+  
   const scrollViewRef = useRef();
+
+  // Available options
+  const interestOptions = [
+    'Travel', 'Music', 'Sports', 'Art', 'Food', 'Technology',
+    'Fashion', 'Reading', 'Movies', 'Gaming', 'Fitness', 'Photography',
+    'Cooking', 'Dancing', 'Hiking', 'Yoga', 'Meditation', 'Painting',
+    'Writing', 'Shopping', 'Animals', 'Nature', 'Cars', 'Science'
+  ];
+
+  const occupationOptions = ['Student','Engineer','Artist','Designer','Developer','Healthcare','Educator','Entrepreneur','Other'];
+  const educationOptions = ['High School',"Bachelor's","Master's",'PhD','Other'];
+  const lookingForOptions = ['Marriage','Friends','Dating','Networking','Activity Partners'];
+  const genderOptions = ['Male','Female'];
 
   // Fetch existing profile data
   useEffect(() => {
@@ -132,6 +153,18 @@ export default function ProfileUpdateScreen({ navigation }) {
   const removeExtraImage = (index) => {
     setExtraImages(prev => prev.filter((_, i) => i !== index));
   };
+
+  // Toggle interest selection
+  const toggleInterest = (interest) => {
+    const interestArray = interests.split(',').filter(i => i.trim() !== '');
+    if (interestArray.includes(interest)) {
+      setInterests(interestArray.filter(i => i !== interest).join(','));
+    } else {
+      setInterests([...interestArray, interest].join(','));
+    }
+  };
+
+  const isInterestSelected = (interest) => interests.split(',').map(i => i.trim()).includes(interest);
 
   // Fixed uploadImage function
   const uploadImage = async (fileUri, fileName) => {
@@ -240,6 +273,32 @@ export default function ProfileUpdateScreen({ navigation }) {
       setUpdating(false);
     }
   };
+
+  // Reusable single-select modal
+  const renderDropdownModal = (visible, setVisible, options, value, setValue, title) => (
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={()=>setVisible(false)}>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{title}</Text>
+            <TouchableOpacity onPress={()=>setVisible(false)} style={styles.closeButton}>
+              <Feather name="x" size={24} color="#374151"/>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={options}
+            keyExtractor={(item)=>item}
+            renderItem={({item})=>(
+              <TouchableOpacity style={[styles.interestOption, value===item && styles.interestOptionSelected]} onPress={()=>{setValue(item); setVisible(false);}}>
+                <Text style={[styles.interestOptionText, value===item && styles.interestOptionTextSelected]}>{item}</Text>
+                {value===item && <Feather name="check" size={18} color="#6366F1"/>}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
 
   // Form sections
   const renderHeader = () => (
@@ -351,23 +410,14 @@ export default function ProfileUpdateScreen({ navigation }) {
           {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
         </View>
 
-        <View style={[styles.inputContainer, { flex: 2 }]}>
+        <View style={[styles.inputContainer, { flex: 1 }]}>
           <Text style={styles.inputLabel}>Gender</Text>
-          <View style={[styles.pickerWrapper, errors.gender && styles.errorBorder]}>
-            <RNPickerSelect
-              onValueChange={setGender}
-              value={gender}
-              style={pickerSelectStyles}
-              placeholder={{ label: 'Select gender', value: null }}
-              items={[
-                { label: 'Male', value: 'Male' },
-                { label: 'Female', value: 'Female' },
-                { label: 'Non-binary', value: 'Non-binary' },
-                { label: 'Prefer not to say', value: 'Prefer not to say' },
-              ]}
-            />
-          </View>
+          <TouchableOpacity style={[styles.interestsButton, errors.gender && styles.errorBorder]} onPress={()=>setShowGenderModal(true)}>
+            <Text style={styles.interestsButtonText}>{gender || 'Select gender'}</Text>
+            <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+          </TouchableOpacity>
           {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
+          {renderDropdownModal(showGenderModal, setShowGenderModal, genderOptions, gender, setGender, 'Select Gender')}
         </View>
       </View>
 
@@ -391,88 +441,102 @@ export default function ProfileUpdateScreen({ navigation }) {
         <Text style={styles.sectionTitle}>Professional Information</Text>
       </View>
       
+      {/* Occupation */}
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Occupation</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setOccupation}
-            value={occupation}
-            style={pickerSelectStyles}
-            placeholder={{ label: 'Select occupation', value: null }}
-            items={[
-              { label: 'Student', value: 'Student' },
-              { label: 'Engineer', value: 'Engineer' },
-              { label: 'Artist', value: 'Artist' },
-              { label: 'Designer', value: 'Designer' },
-              { label: 'Developer', value: 'Developer' },
-              { label: 'Healthcare', value: 'Healthcare' },
-              { label: 'Educator', value: 'Educator' },
-              { label: 'Entrepreneur', value: 'Entrepreneur' },
-              { label: 'Other', value: 'Other' },
-            ]}
-          />
-        </View>
+        <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowOccupationModal(true)}>
+          <Text style={styles.interestsButtonText}>{occupation || 'Select occupation'}</Text>
+          <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+        </TouchableOpacity>
+        {renderDropdownModal(showOccupationModal, setShowOccupationModal, occupationOptions, occupation, setOccupation, 'Select Occupation')}
       </View>
 
+      {/* Education */}
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Education</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setEducation}
-            value={education}
-            style={pickerSelectStyles}
-            placeholder={{ label: 'Select education', value: null }}
-            items={[
-              { label: 'High School', value: 'High School' },
-              { label: "Bachelor's Degree", value: "Bachelor's" },
-              { label: "Master's Degree", value: "Master's" },
-              { label: 'PhD', value: 'PhD' },
-              { label: 'Other', value: 'Other' },
-            ]}
-          />
-        </View>
+        <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowEducationModal(true)}>
+          <Text style={styles.interestsButtonText}>{education || 'Select education'}</Text>
+          <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+        </TouchableOpacity>
+        {renderDropdownModal(showEducationModal, setShowEducationModal, educationOptions, education, setEducation, 'Select Education')}
       </View>
     </View>
   );
 
-  const renderInterests = () => (
-    <View style={styles.card}>
-      <View style={styles.sectionHeader}>
-        <Feather name="heart" size={20} color="#6366F1" />
-        <Text style={styles.sectionTitle}>Interests & Preferences</Text>
-      </View>
-      
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Interests</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Travel, Music, Sports, Art..."
-          value={interests}
-          onChangeText={setInterests}
-        />
-        <Text style={styles.hintText}>Separate with commas</Text>
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Looking For</Text>
-        <View style={[styles.pickerWrapper, errors.lookingFor && styles.errorBorder]}>
-          <RNPickerSelect
-            onValueChange={setLookingFor}
-            value={lookingFor}
-            style={pickerSelectStyles}
-            placeholder={{ label: 'Select what you seek', value: null }}
-            items={[
-              { label: 'Friends', value: 'Friends' },
-              { label: 'Dating', value: 'Dating' },
-              { label: 'Networking', value: 'Networking' },
-              { label: 'Activity Partners', value: 'Activity Partners' },
-            ]}
-          />
+  const renderInterests = () => {
+    const selectedInterests = interests.split(',').filter(i=>i.trim()!=='');
+    return (
+      <View style={styles.card}>
+        <View style={styles.sectionHeader}>
+          <Feather name="heart" size={20} color="#6366F1" />
+          <Text style={styles.sectionTitle}>Interests & Preferences</Text>
         </View>
-        {errors.lookingFor && <Text style={styles.errorText}>{errors.lookingFor}</Text>}
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Interests</Text>
+          <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowInterestsModal(true)}>
+            <Text style={styles.interestsButtonText}>
+              {selectedInterests.length>0?`${selectedInterests.length} interests selected`:'Select your interests'}
+            </Text>
+            <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+          </TouchableOpacity>
+
+          {selectedInterests.length>0 && (
+            <View style={styles.selectedInterestsContainer}>
+              {selectedInterests.map((i,idx)=>(
+                <View key={idx} style={styles.interestTag}>
+                  <Text style={styles.interestTagText}>{i}</Text>
+                  <TouchableOpacity onPress={()=>toggleInterest(i)} style={styles.removeInterestButton}>
+                    <Feather name="x" size={14} color="#6366F1"/>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Looking For */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Looking For</Text>
+          <TouchableOpacity style={[styles.interestsButton, errors.lookingFor && styles.errorBorder]} onPress={()=>setShowLookingForModal(true)}>
+            <Text style={styles.interestsButtonText}>{lookingFor || 'Select what you seek'}</Text>
+            <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+          </TouchableOpacity>
+          {errors.lookingFor && <Text style={styles.errorText}>{errors.lookingFor}</Text>}
+          {renderDropdownModal(showLookingForModal, setShowLookingForModal, lookingForOptions, lookingFor, setLookingFor, 'Select What You Are Looking For')}
+        </View>
+
+        {/* Interests Modal (multi-select) */}
+        <Modal visible={showInterestsModal} animationType="slide" transparent={true} onRequestClose={()=>setShowInterestsModal(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Your Interests</Text>
+                <TouchableOpacity onPress={()=>setShowInterestsModal(false)} style={styles.closeButton}>
+                  <Feather name="x" size={24} color="#374151"/>
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={interestOptions}
+                keyExtractor={(item)=>item}
+                renderItem={({item})=>(
+                  <TouchableOpacity style={[styles.interestOption, isInterestSelected(item)&&styles.interestOptionSelected]} onPress={()=>toggleInterest(item)}>
+                    <Text style={[styles.interestOptionText, isInterestSelected(item)&&styles.interestOptionTextSelected]}>{item}</Text>
+                    {isInterestSelected(item)&&<Feather name="check" size={18} color="#6366F1"/>}
+                  </TouchableOpacity>
+                )}
+                numColumns={2}
+                contentContainerStyle={styles.interestsGrid}
+              />
+              <TouchableOpacity style={styles.doneButton} onPress={()=>setShowInterestsModal(false)}>
+                <Text style={styles.doneButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderSubmitButton = () => (
     <TouchableOpacity 
@@ -711,14 +775,107 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
   },
-  pickerWrapper: {
+  interestsButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     backgroundColor: '#FFFFFF',
+    padding: 14,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-    height: 52,
+  },
+  interestsButtonText: {
+    fontSize: 16,
+    color: '#111827',
+  },
+  selectedInterestsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  interestTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  interestTagText: {
+    color: '#6366F1',
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 4,
+  },
+  removeInterestButton: {
+    padding: 2,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  interestsGrid: {
+    paddingBottom: 20,
+  },
+  interestOption: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    margin: 6,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  interestOptionSelected: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#6366F1',
+  },
+  interestOptionText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  interestOptionTextSelected: {
+    color: '#6366F1',
+    fontWeight: '600',
+  },
+  doneButton: {
+    backgroundColor: '#6366F1',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  doneButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   button: {
     backgroundColor: '#6366F1',
@@ -748,23 +905,5 @@ const styles = StyleSheet.create({
   },
   spacer: {
     height: 20,
-  },
-});
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    color: '#111827',
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  inputAndroid: {
-    fontSize: 16,
-    color: '#111827',
-    paddingVertical: 0,
-    paddingHorizontal: 0,
-  },
-  placeholder: {
-    color: '#9CA3AF',
   },
 });

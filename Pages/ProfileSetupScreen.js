@@ -11,9 +11,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Dimensions
+  Dimensions,
+  Modal,
+  FlatList
 } from 'react-native';
-import RNPickerSelect from 'react-native-picker-select';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system';
 import { Buffer } from 'buffer';
@@ -36,7 +37,25 @@ export default function ProfileSetupScreen({ navigation }) {
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [showInterestsModal, setShowInterestsModal] = useState(false);
+  const [showGenderModal, setShowGenderModal] = useState(false);
+  const [showOccupationModal, setShowOccupationModal] = useState(false);
+  const [showEducationModal, setShowEducationModal] = useState(false);
+  const [showLookingForModal, setShowLookingForModal] = useState(false);
   const scrollViewRef = useRef();
+
+  // Available options
+  const interestOptions = [
+    'Travel', 'Music', 'Sports', 'Art', 'Food', 'Technology',
+    'Fashion', 'Reading', 'Movies', 'Gaming', 'Fitness', 'Photography',
+    'Cooking', 'Dancing', 'Hiking', 'Yoga', 'Meditation', 'Painting',
+    'Writing', 'Shopping', 'Animals', 'Nature', 'Cars', 'Science'
+  ];
+
+  const occupationOptions = ['Student','Engineer','Artist','Designer','Developer','Healthcare','Educator','Entrepreneur','Other'];
+  const educationOptions = ['High School',"Bachelor's","Master's",'PhD','Other'];
+  const lookingForOptions = ['Marriage','Friends','Dating','Networking','Activity Partners'];
+  const genderOptions = ['Male','Female'];
 
   const validateForm = () => {
     const newErrors = {};
@@ -54,31 +73,24 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   const handleImageSelection = async (forSelfie = false) => {
-    // Request permissions first
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission required', 'We need access to your photos');
       return;
     }
 
-    const options = {
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: forSelfie ? [1, 2] : [1, 2],
-      quality: 0.7,
-    };
-
     try {
-      const result = await ImagePicker.launchImageLibraryAsync(options);
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1,2],
+        quality: 0.7,
+      });
 
       if (!result.canceled) {
         const uri = result.assets[0].uri;
-
-        if (forSelfie) {
-          setProfilePic(uri);
-        } else if (extraImages.length < 4) {
-          setExtraImages([...extraImages, uri]);
-        }
+        if (forSelfie) setProfilePic(uri);
+        else if (extraImages.length < 4) setExtraImages([...extraImages, uri]);
       }
     } catch (error) {
       console.error('Image selection error:', error);
@@ -92,36 +104,32 @@ export default function ProfileSetupScreen({ navigation }) {
     setExtraImages(newImages);
   };
 
+  const toggleInterest = (interest) => {
+    const interestArray = interests.split(',').filter(i => i.trim() !== '');
+    if (interestArray.includes(interest)) {
+      setInterests(interestArray.filter(i => i !== interest).join(','));
+    } else {
+      setInterests([...interestArray, interest].join(','));
+    }
+  };
+
+  const isInterestSelected = (interest) => interests.split(',').map(i => i.trim()).includes(interest);
+
   const uploadImage = async (fileUri, fileName) => {
     try {
-      // Read file as base64 string
-      const base64Data = await FileSystem.readAsStringAsync(fileUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // Convert to Uint8Array
+      const base64Data = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.Base64 });
       const buffer = Buffer.from(base64Data, 'base64');
       const uintArray = new Uint8Array(buffer);
 
-      // Upload binary data
-      const { error } = await supabase.storage
-        .from('profile-photos')
-        .upload(fileName, uintArray, {
-          contentType: 'image/jpeg',
-          upsert: true,
-          cacheControl: '3600',
-        });
+      const { error } = await supabase.storage.from('profile-photos').upload(fileName, uintArray, {
+        contentType: 'image/jpeg',
+        upsert: true,
+        cacheControl: '3600',
+      });
 
-      if (error) {
-        console.error('Upload error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      // Get public URL
-      const { data } = supabase.storage
-        .from('profile-photos')
-        .getPublicUrl(fileName);
-
+      const { data } = supabase.storage.from('profile-photos').getPublicUrl(fileName);
       return data.publicUrl;
     } catch (err) {
       console.error('Upload failed:', err);
@@ -131,40 +139,27 @@ export default function ProfileSetupScreen({ navigation }) {
 
   const handleNext = async () => {
     if (!validateForm()) return;
-
     setLoading(true);
-
     try {
       const { data: { user }, error: userErr } = await supabase.auth.getUser();
-      if (userErr || !user) {
-        Alert.alert('Error', 'User not authenticated');
-        return;
-      }
+      if (userErr || !user) { Alert.alert('Error','User not authenticated'); return; }
 
-      // Upload profile picture
       let selfieUrl = '';
       if (profilePic) {
         const fileExt = profilePic.split('.').pop() || 'jpg';
-        const fileName = `${user.id}/selfie_${Date.now()}.${fileExt}`;
-        selfieUrl = await uploadImage(profilePic, fileName);
+        selfieUrl = await uploadImage(profilePic, `${user.id}/selfie_${Date.now()}.${fileExt}`);
       }
 
-      // Upload extra images
       const uploadedExtraUrls = [];
-      for (let i = 0; i < extraImages.length; i++) {
+      for (let i=0;i<extraImages.length;i++){
         const uri = extraImages[i];
         const fileExt = uri.split('.').pop() || 'jpg';
-        const fileName = `${user.id}/extra_${Date.now()}_${i}.${fileExt}`;
-        const url = await uploadImage(uri, fileName);
+        const url = await uploadImage(uri, `${user.id}/extra_${Date.now()}_${i}.${fileExt}`);
         uploadedExtraUrls.push(url);
       }
 
-      if (!selfieUrl) {
-        Alert.alert('Error', 'Profile image upload failed');
-        return;
-      }
+      if (!selfieUrl) { Alert.alert('Error','Profile image upload failed'); return; }
 
-      // Insert profile
       const payload = {
         id: user.id,
         full_name: name,
@@ -174,32 +169,54 @@ export default function ProfileSetupScreen({ navigation }) {
         location,
         occupation,
         education,
-        interests: interests.split(',').map(i => i.trim()).join(','),
-        looking_for: lookingFor,
+        interests: interests.split(',').map(i=>i.trim()).join(','),
+        looking_for: lookingFor.split(',').map(i=>i.trim()).join(','),
         selfie_url: selfieUrl,
         extra_images: uploadedExtraUrls.join(','),
       };
 
       const { error } = await supabase.from('profiles').insert([payload]);
       if (error) throw error;
-
       navigation.replace('MainTabs');
 
-    } catch (err) {
+    } catch(err) {
       Alert.alert('Upload Error', err.message || 'Failed to upload images');
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  // Form sections
+  // Reusable single-select modal
+  const renderDropdownModal = (visible, setVisible, options, value, setValue, title) => (
+    <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={()=>setVisible(false)}>
+      <View style={styles.modalContainer}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>{title}</Text>
+            <TouchableOpacity onPress={()=>setVisible(false)} style={styles.closeButton}>
+              <Feather name="x" size={24} color="#374151"/>
+            </TouchableOpacity>
+          </View>
+          <FlatList
+            data={options}
+            keyExtractor={(item)=>item}
+            renderItem={({item})=>(
+              <TouchableOpacity style={[styles.interestOption, value===item && styles.interestOptionSelected]} onPress={()=>{setValue(item); setVisible(false);}}>
+                <Text style={[styles.interestOptionText, value===item && styles.interestOptionTextSelected]}>{item}</Text>
+                {value===item && <Feather name="check" size={18} color="#6366F1"/>}
+              </TouchableOpacity>
+            )}
+          />
+        </View>
+      </View>
+    </Modal>
+  );
+
+  // UI rendering sections (photo, personal info, professional info, interests) remain mostly unchanged
+  // Only dropdowns replaced with modal buttons + renderDropdownModal
+
   const renderHeader = () => (
     <View style={styles.header}>
-      <TouchableOpacity 
-        onPress={() => navigation.goBack()}
-        style={styles.backButton}
-      >
-        <Ionicons name="arrow-back" size={24} color="#6366F1" />
+      <TouchableOpacity onPress={()=>navigation.goBack()} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color="#6366F1"/>
       </TouchableOpacity>
       <Text style={styles.title}>Create Your Profile</Text>
       <Text style={styles.subtitle}>Complete your profile to get started</Text>
@@ -209,46 +226,34 @@ export default function ProfileSetupScreen({ navigation }) {
   const renderPhotoSection = () => (
     <View style={styles.card}>
       <View style={styles.sectionHeader}>
-        <MaterialIcons name="photo-camera" size={20} color="#6366F1" />
+        <MaterialIcons name="photo-camera" size={20} color="#6366F1"/>
         <Text style={styles.sectionTitle}>Profile Photos</Text>
       </View>
-      
       <View style={styles.photoSection}>
         <Text style={styles.label}>Upload A Profile</Text>
-        <TouchableOpacity 
-          onPress={() => handleImageSelection(true)} 
-          style={styles.avatarWrapper}
-        >
-          {profilePic ? (
-            <Image source={{ uri: profilePic }} style={styles.avatar} />
-          ) : (
+        <TouchableOpacity onPress={()=>handleImageSelection(true)} style={styles.avatarWrapper}>
+          {profilePic ? <Image source={{uri:profilePic}} style={styles.avatar}/> :
             <View style={[styles.avatarPlaceholder, errors.profilePic && styles.errorBorder]}>
-              <Feather name="camera" size={32} color="#9CA3AF" />
+              <Feather name="camera" size={32} color="#9CA3AF"/>
               <Text style={styles.placeholderText}>Tap to take</Text>
             </View>
-          )}
+          }
         </TouchableOpacity>
         {errors.profilePic && <Text style={styles.errorText}>{errors.profilePic}</Text>}
 
         <Text style={styles.label}>Additional Photos (up to 4)</Text>
         <View style={styles.photosWrapper}>
-          {extraImages.map((img, index) => (
-            <View key={index} style={styles.photoContainer}>
-              <Image source={{ uri: img }} style={styles.photo} />
-              <TouchableOpacity 
-                style={styles.removePhoto}
-                onPress={() => removeExtraImage(index)}
-              >
-                <Feather name="x" size={16} color="white" />
+          {extraImages.map((img,i)=>(
+            <View key={i} style={styles.photoContainer}>
+              <Image source={{uri:img}} style={styles.photo}/>
+              <TouchableOpacity style={styles.removePhoto} onPress={()=>removeExtraImage(i)}>
+                <Feather name="x" size={16} color="white"/>
               </TouchableOpacity>
             </View>
           ))}
-          {extraImages.length < 4 && (
-            <TouchableOpacity 
-              onPress={() => handleImageSelection(false)} 
-              style={styles.addPhoto}
-            >
-              <Feather name="plus" size={28} color="#9CA3AF" />
+          {extraImages.length<4 && (
+            <TouchableOpacity onPress={()=>handleImageSelection(false)} style={styles.addPhoto}>
+              <Feather name="plus" size={28} color="#9CA3AF"/>
             </TouchableOpacity>
           )}
         </View>
@@ -259,77 +264,43 @@ export default function ProfileSetupScreen({ navigation }) {
   const renderPersonalInfo = () => (
     <View style={styles.card}>
       <View style={styles.sectionHeader}>
-        <Feather name="user" size={20} color="#6366F1" />
+        <Feather name="user" size={20} color="#6366F1"/>
         <Text style={styles.sectionTitle}>Personal Information</Text>
       </View>
-      
+
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Full Name</Text>
-        <TextInput 
-          style={[styles.input, errors.name && styles.errorInput]} 
-          placeholder="John Doe" 
-          value={name} 
-          onChangeText={setName}
-          maxLength={50}
-        />
+        <TextInput style={[styles.input, errors.name && styles.errorInput]} placeholder="John Doe" value={name} onChangeText={setName} maxLength={50}/>
         {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
       </View>
 
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Bio</Text>
-        <TextInput 
-          style={[styles.input, styles.bioInput]} 
-          placeholder="Tell others about yourself..." 
-          value={bio} 
-          onChangeText={setBio}
-          multiline
-          maxLength={250}
-        />
+        <TextInput style={[styles.input, styles.bioInput]} placeholder="Tell others about yourself..." value={bio} onChangeText={setBio} multiline maxLength={250}/>
         <Text style={styles.charCount}>{bio.length}/250</Text>
       </View>
 
       <View style={styles.row}>
-        <View style={[styles.inputContainer, { flex: 1, marginRight: 10 }]}>
+        <View style={[styles.inputContainer,{flex:1,marginRight:10}]}>
           <Text style={styles.inputLabel}>Age</Text>
-          <TextInput
-            style={[styles.input, errors.age && styles.errorInput]}
-            placeholder="25"
-            keyboardType="numeric"
-            value={age}
-            onChangeText={text => setAge(text.replace(/[^0-9]/g, ''))}
-            maxLength={3}
-          />
+          <TextInput style={[styles.input, errors.age && styles.errorInput]} placeholder="25" keyboardType="numeric" value={age} onChangeText={text=>setAge(text.replace(/[^0-9]/g,''))} maxLength={3}/>
           {errors.age && <Text style={styles.errorText}>{errors.age}</Text>}
-                </View>
+        </View>
 
-        <View style={[styles.inputContainer, { flex: 2 }]}>
+        <View style={[styles.inputContainer,{flex:1}]}>
           <Text style={styles.inputLabel}>Gender</Text>
-          <View style={[styles.pickerWrapper, errors.gender && styles.errorBorder]}>
-            <RNPickerSelect
-              onValueChange={setGender}
-              value={gender}
-              style={pickerSelectStyles}
-              placeholder={{ label: 'Select gender', value: null }}
-              items={[
-                { label: 'Male', value: 'male' },
-                { label: 'Female', value: 'female' },
-                { label: 'Non-binary', value: 'non-binary' },
-                { label: 'Prefer not to say', value: 'other' },
-              ]}
-            />
-          </View>
+          <TouchableOpacity style={[styles.interestsButton, errors.gender && styles.errorBorder]} onPress={()=>setShowGenderModal(true)}>
+            <Text style={styles.interestsButtonText}>{gender || 'Select gender'}</Text>
+            <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+          </TouchableOpacity>
           {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
+          {renderDropdownModal(showGenderModal, setShowGenderModal, genderOptions, gender, setGender, 'Select Gender')}
         </View>
       </View>
 
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Location</Text>
-        <TextInput
-          style={[styles.input, errors.location && styles.errorInput]}
-          placeholder="City, Country"
-          value={location}
-          onChangeText={setLocation}
-        />
+        <TextInput style={[styles.input, errors.location && styles.errorInput]} placeholder="City, Country" value={location} onChangeText={setLocation}/>
         {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
       </View>
     </View>
@@ -338,129 +309,129 @@ export default function ProfileSetupScreen({ navigation }) {
   const renderProfessionalInfo = () => (
     <View style={styles.card}>
       <View style={styles.sectionHeader}>
-        <Feather name="briefcase" size={20} color="#6366F1" />
+        <Feather name="briefcase" size={20} color="#6366F1"/>
         <Text style={styles.sectionTitle}>Professional Information</Text>
       </View>
-      
+
+      {/* Occupation */}
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Occupation</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setOccupation}
-            value={occupation}
-            style={pickerSelectStyles}
-            placeholder={{ label: 'Select occupation', value: null }}
-            items={[
-              { label: 'Student', value: 'Student' },
-              { label: 'Engineer', value: 'Engineer' },
-              { label: 'Artist', value: 'Artist' },
-              { label: 'Designer', value: 'Designer' },
-              { label: 'Developer', value: 'Developer' },
-              { label: 'Healthcare', value: 'Healthcare' },
-              { label: 'Educator', value: 'Educator' },
-              { label: 'Entrepreneur', value: 'Entrepreneur' },
-              { label: 'Other', value: 'Other' },
-            ]}
-          />
-        </View>
+        <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowOccupationModal(true)}>
+          <Text style={styles.interestsButtonText}>{occupation || 'Select occupation'}</Text>
+          <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+        </TouchableOpacity>
+        {renderDropdownModal(showOccupationModal, setShowOccupationModal, occupationOptions, occupation, setOccupation, 'Select Occupation')}
       </View>
 
+      {/* Education */}
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Education</Text>
-        <View style={styles.pickerWrapper}>
-          <RNPickerSelect
-            onValueChange={setEducation}
-            value={education}
-            style={pickerSelectStyles}
-            placeholder={{ label: 'Select education', value: null }}
-            items={[
-              { label: 'High School', value: 'High School' },
-              { label: "Bachelor's Degree", value: "Bachelor's" },
-              { label: "Master's Degree", value: "Master's" },
-              { label: 'PhD', value: 'PhD' },
-              { label: 'Other', value: 'Other' },
-            ]}
-          />
-        </View>
+        <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowEducationModal(true)}>
+          <Text style={styles.interestsButtonText}>{education || 'Select education'}</Text>
+          <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+        </TouchableOpacity>
+        {renderDropdownModal(showEducationModal, setShowEducationModal, educationOptions, education, setEducation, 'Select Education')}
       </View>
     </View>
   );
 
-  const renderInterests = () => (
-    <View style={styles.card}>
-      <View style={styles.sectionHeader}>
-        <Feather name="heart" size={20} color="#6366F1" />
-        <Text style={styles.sectionTitle}>Interests & Preferences</Text>
-      </View>
-      
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Interests</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Travel, Music, Sports, Art..."
-          value={interests}
-          onChangeText={setInterests}
-        />
-        <Text style={styles.hintText}>Separate with commas</Text>
-      </View>
-
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Looking For</Text>
-        <View style={[styles.pickerWrapper, errors.lookingFor && styles.errorBorder]}>
-          <RNPickerSelect
-            onValueChange={setLookingFor}
-            value={lookingFor}
-            style={pickerSelectStyles}
-            placeholder={{ label: 'Select what you seek', value: null }}
-            items={[
-              { label: 'Friends', value: 'Friends' },
-              { label: 'Dating', value: 'Dating' },
-              { label: 'Networking', value: 'Networking' },
-              { label: 'Activity Partners', value: 'Activity Partners' },
-            ]}
-          />
+  const renderInterests = () => {
+    const selectedInterests = interests.split(',').filter(i=>i.trim()!=='');
+    return (
+      <View style={styles.card}>
+        <View style={styles.sectionHeader}>
+          <Feather name="heart" size={20} color="#6366F1"/>
+          <Text style={styles.sectionTitle}>Interests & Preferences</Text>
         </View>
-        {errors.lookingFor && <Text style={styles.errorText}>{errors.lookingFor}</Text>}
+
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Interests</Text>
+          <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowInterestsModal(true)}>
+            <Text style={styles.interestsButtonText}>
+              {selectedInterests.length>0?`${selectedInterests.length} interests selected`:'Select your interests'}
+            </Text>
+            <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+          </TouchableOpacity>
+
+          {selectedInterests.length>0 && (
+            <View style={styles.selectedInterestsContainer}>
+              {selectedInterests.map((i,idx)=>(
+                <View key={idx} style={styles.interestTag}>
+                  <Text style={styles.interestTagText}>{i}</Text>
+                  <TouchableOpacity onPress={()=>toggleInterest(i)} style={styles.removeInterestButton}>
+                    <Feather name="x" size={14} color="#6366F1"/>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* Looking For */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.inputLabel}>Looking For</Text>
+          <TouchableOpacity style={[styles.interestsButton, errors.lookingFor && styles.errorBorder]} onPress={()=>setShowLookingForModal(true)}>
+            <Text style={styles.interestsButtonText}>{lookingFor || 'Select what you seek'}</Text>
+            <Feather name="chevron-down" size={20} color="#9CA3AF"/>
+          </TouchableOpacity>
+          {errors.lookingFor && <Text style={styles.errorText}>{errors.lookingFor}</Text>}
+          {renderDropdownModal(showLookingForModal, setShowLookingForModal, lookingForOptions, lookingFor, setLookingFor, 'Select What You Are Looking For')}
+        </View>
+
+        {/* Interests Modal (multi-select) */}
+        <Modal visible={showInterestsModal} animationType="slide" transparent={true} onRequestClose={()=>setShowInterestsModal(false)}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Your Interests</Text>
+                <TouchableOpacity onPress={()=>setShowInterestsModal(false)} style={styles.closeButton}>
+                  <Feather name="x" size={24} color="#374151"/>
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={interestOptions}
+                keyExtractor={(item)=>item}
+                renderItem={({item})=>(
+                  <TouchableOpacity style={[styles.interestOption, isInterestSelected(item)&&styles.interestOptionSelected]} onPress={()=>toggleInterest(item)}>
+                    <Text style={[styles.interestOptionText, isInterestSelected(item)&&styles.interestOptionTextSelected]}>{item}</Text>
+                    {isInterestSelected(item)&&<Feather name="check" size={18} color="#6366F1"/>}
+                  </TouchableOpacity>
+                )}
+                numColumns={2}
+                contentContainerStyle={styles.interestsGrid}
+              />
+              <TouchableOpacity style={styles.doneButton} onPress={()=>setShowInterestsModal(false)}>
+                <Text style={styles.doneButtonText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderSubmitButton = () => (
-    <TouchableOpacity 
-      style={[styles.button, loading && styles.buttonDisabled]} 
-      onPress={handleNext}
-      disabled={loading}
-    >
-      {loading ? (
-        <ActivityIndicator size="small" color="white" />
-      ) : (
-        <Text style={styles.buttonText}>Complete Profile</Text>
-      )}
+    <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleNext} disabled={loading}>
+      {loading? <ActivityIndicator size="small" color="white"/> : <Text style={styles.buttonText}>Complete Profile</Text>}
     </TouchableOpacity>
   );
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.scrollView} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+    <KeyboardAvoidingView behavior={Platform.OS==='ios'?'padding':'height'} style={styles.container}>
+      <ScrollView ref={scrollViewRef} style={styles.scrollView} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {renderHeader()}
         {renderPhotoSection()}
         {renderPersonalInfo()}
         {renderProfessionalInfo()}
         {renderInterests()}
         {renderSubmitButton()}
-        <View style={styles.spacer} />
+        <View style={styles.spacer}/>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -649,6 +620,108 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     justifyContent: 'center',
     height: 52,
+  },
+  interestsButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  interestsButtonText: {
+    fontSize: 16,
+    color: '#111827',
+  },
+  selectedInterestsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 10,
+  },
+  interestTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#EEF2FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  interestTagText: {
+    color: '#6366F1',
+    fontSize: 14,
+    fontWeight: '500',
+    marginRight: 4,
+  },
+  removeInterestButton: {
+    padding: 2,
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#111827',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  interestsGrid: {
+    paddingBottom: 20,
+  },
+  interestOption: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    margin: 6,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  interestOptionSelected: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#6366F1',
+  },
+  interestOptionText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  interestOptionTextSelected: {
+    color: '#6366F1',
+    fontWeight: '600',
+  },
+  doneButton: {
+    backgroundColor: '#6366F1',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  doneButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   button: {
     backgroundColor: '#6366F1',
