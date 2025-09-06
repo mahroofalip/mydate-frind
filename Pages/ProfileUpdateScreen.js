@@ -830,7 +830,7 @@ export default function ProfileUpdateScreen({ navigation }) {
           onRequestClose={() => setShowInterestsModal(false)}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
+            <View style={[styles.modalContainer, { maxHeight: '90%' }]}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Select Your Interests</Text>
                 <TouchableOpacity
@@ -848,16 +848,16 @@ export default function ProfileUpdateScreen({ navigation }) {
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={[
-                      styles.modalOption,
-                      isInterestSelected(item) && styles.modalOptionSelected,
+                      styles.interestOption,
+                      isInterestSelected(item) && styles.interestOptionSelected,
                     ]}
                     onPress={() => toggleInterest(item)}
                   >
                     <Text
                       style={[
-                        styles.modalOptionText,
+                        styles.interestOptionText,
                         isInterestSelected(item) &&
-                          styles.modalOptionTextSelected,
+                          styles.interestOptionTextSelected,
                       ]}
                     >
                       {item}
@@ -1210,6 +1210,30 @@ const styles = StyleSheet.create({
   },
   interestsGrid: {
     paddingBottom: 20,
+  },
+  interestOption: {
+    flex: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    margin: 6,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  interestOptionSelected: {
+    backgroundColor: '#EEF2FF',
+    borderColor: '#6366F1',
+  },
+  interestOptionText: {
+    fontSize: 16,
+    color: '#374151',
+  },
+  interestOptionTextSelected: {
+    color: '#6366F1',
+    fontWeight: '600',
   },
   doneButton: {
     backgroundColor: "#6366F1",
