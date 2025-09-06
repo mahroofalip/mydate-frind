@@ -1,5 +1,8 @@
 // App.js (fully modified)
 import "react-native-gesture-handler";
+import 'react-native-get-random-values'; 
+import '@react-native-community/geolocation';
+
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   createNavigationContainerRef,

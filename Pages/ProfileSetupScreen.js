@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import "react-native-get-random-values"; // Must be first import
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -37,12 +38,25 @@ export default function ProfileSetupScreen({ navigation }) {
   const [extraImages, setExtraImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [locationCoords, setLocationCoords] = useState(null);
+  
+  // Modal states
   const [showInterestsModal, setShowInterestsModal] = useState(false);
   const [showGenderModal, setShowGenderModal] = useState(false);
   const [showOccupationModal, setShowOccupationModal] = useState(false);
   const [showEducationModal, setShowEducationModal] = useState(false);
   const [showLookingForModal, setShowLookingForModal] = useState(false);
+  const [showLocationModal, setShowLocationModal] = useState(false);
+  
+  // Autocomplete states
+  const [autocompleteResults, setAutocompleteResults] = useState([]);
+  const [autocompleteLoading, setAutocompleteLoading] = useState(false);
+  const [locationSearch, setLocationSearch] = useState('');
+
   const scrollViewRef = useRef();
+
+  // Google API Key (replace with your actual key)
+  const GOOGLE_API_KEY = "AIzaSyAgDCvBLA8cfDXKVPKtVaL_eeoqw3xFjQo";
 
   // Available options
   const interestOptions = [
@@ -55,7 +69,77 @@ export default function ProfileSetupScreen({ navigation }) {
   const occupationOptions = ['Student','Engineer','Artist','Designer','Developer','Healthcare','Educator','Entrepreneur','Other'];
   const educationOptions = ['High School',"Bachelor's","Master's",'PhD','Other'];
   const lookingForOptions = ['Marriage','Friends','Dating','Networking','Activity Partners'];
-  const genderOptions = ['Male','Female'];
+  const genderOptions = ['Male','Female','Other'];
+
+  // Fetch autocomplete suggestions
+  const fetchAutocompleteSuggestions = async (input) => {
+    if (!input || input.length < 3) {
+      setAutocompleteResults([]);
+      return;
+    }
+
+    setAutocompleteLoading(true);
+    try {
+      const encodedInput = encodeURIComponent(input);
+      const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodedInput}&key=${GOOGLE_API_KEY}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === "OK") {
+        setAutocompleteResults(data.predictions);
+      } else {
+        setAutocompleteResults([]);
+      }
+    } catch (error) {
+      // console.error("Autocomplete error:", error);
+      setAutocompleteResults([]);
+    } finally {
+      setAutocompleteLoading(false);
+    }
+  };
+
+  // Get place details from place_id
+  const fetchPlaceDetails = async (placeId) => {
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/details/json?placeid=${placeId}&key=${GOOGLE_API_KEY}`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.status === "OK" && data.result.geometry) {
+        const { lat, lng } = data.result.geometry.location;
+        setLocationCoords({
+          latitude: lat,
+          longitude: lng,
+        });
+        
+        // Set the formatted address as location
+        setLocation(data.result.formatted_address);
+        
+        // Clear error when location is selected
+        if (errors.location) {
+          setErrors({ ...errors, location: "" });
+        }
+      }
+    } catch (error) {
+      // console.error("Place details error:", error);
+      Alert.alert("Error", "Failed to get location details");
+    }
+  };
+
+  // Handle location search change
+  const handleLocationSearchChange = (text) => {
+    setLocationSearch(text);
+    fetchAutocompleteSuggestions(text);
+  };
+
+  // Select a location from autocomplete
+  const selectLocation = (place) => {
+    setLocation(place.description);
+    setShowLocationModal(false);
+    fetchPlaceDetails(place.place_id);
+  };
 
   const validateForm = () => {
     const newErrors = {};
@@ -66,6 +150,8 @@ export default function ProfileSetupScreen({ navigation }) {
       newErrors.age = 'Age must be between 18-100';
     if (!gender) newErrors.gender = 'Please select gender';
     if (!location.trim()) newErrors.location = 'Location is required';
+    if (!locationCoords)
+      newErrors.location = 'Please select a valid location from suggestions';
     if (!lookingFor) newErrors.lookingFor = 'Please select what you\'re looking for';
 
     setErrors(newErrors);
@@ -79,22 +165,24 @@ export default function ProfileSetupScreen({ navigation }) {
       return;
     }
 
-    try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1,2],
-        quality: 0.7,
-      });
+    const options = {
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    };
 
-      if (!result.canceled) {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync(options);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
         const uri = result.assets[0].uri;
         if (forSelfie) setProfilePic(uri);
         else if (extraImages.length < 4) setExtraImages([...extraImages, uri]);
       }
     } catch (error) {
       console.error('Image selection error:', error);
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', 'Failed to select image. Please try again.');
     }
   };
 
@@ -105,7 +193,10 @@ export default function ProfileSetupScreen({ navigation }) {
   };
 
   const toggleInterest = (interest) => {
-    const interestArray = interests.split(',').filter(i => i.trim() !== '');
+    const interestArray = interests
+      ? interests.split(',').filter(i => i && i.trim() !== '')
+      : [];
+
     if (interestArray.includes(interest)) {
       setInterests(interestArray.filter(i => i !== interest).join(','));
     } else {
@@ -113,7 +204,13 @@ export default function ProfileSetupScreen({ navigation }) {
     }
   };
 
-  const isInterestSelected = (interest) => interests.split(',').map(i => i.trim()).includes(interest);
+  const isInterestSelected = (interest) => {
+    if (!interests) return false;
+    return interests
+      .split(',')
+      .map(i => i.trim())
+      .includes(interest);
+  };
 
   const uploadImage = async (fileUri, fileName) => {
     try {
@@ -164,13 +261,19 @@ export default function ProfileSetupScreen({ navigation }) {
         id: user.id,
         full_name: name,
         bio,
-        age,
+        age: parseInt(age) || null,
         gender,
         location,
+        latitude: locationCoords?.latitude,
+        longitude: locationCoords?.longitude,
         occupation,
         education,
-        interests: interests.split(',').map(i=>i.trim()).join(','),
-        looking_for: lookingFor.split(',').map(i=>i.trim()).join(','),
+        interests: interests
+          .split(',')
+          .filter(i => i && i.trim() !== '')
+          .map(i => i.trim())
+          .join(','),
+        looking_for: lookingFor,
         selfie_url: selfieUrl,
         extra_images: uploadedExtraUrls.join(','),
       };
@@ -187,8 +290,8 @@ export default function ProfileSetupScreen({ navigation }) {
   // Reusable single-select modal
   const renderDropdownModal = (visible, setVisible, options, value, setValue, title) => (
     <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={()=>setVisible(false)}>
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>{title}</Text>
             <TouchableOpacity onPress={()=>setVisible(false)} style={styles.closeButton}>
@@ -199,8 +302,19 @@ export default function ProfileSetupScreen({ navigation }) {
             data={options}
             keyExtractor={(item)=>item}
             renderItem={({item})=>(
-              <TouchableOpacity style={[styles.interestOption, value===item && styles.interestOptionSelected]} onPress={()=>{setValue(item); setVisible(false);}}>
-                <Text style={[styles.interestOptionText, value===item && styles.interestOptionTextSelected]}>{item}</Text>
+              <TouchableOpacity 
+                style={[
+                  styles.modalOption,
+                  value===item && styles.modalOptionSelected
+                ]} 
+                onPress={()=>{setValue(item); setVisible(false);}}
+              >
+                <Text style={[
+                  styles.modalOptionText,
+                  value===item && styles.modalOptionTextSelected
+                ]}>
+                  {item}
+                </Text>
                 {value===item && <Feather name="check" size={18} color="#6366F1"/>}
               </TouchableOpacity>
             )}
@@ -210,8 +324,73 @@ export default function ProfileSetupScreen({ navigation }) {
     </Modal>
   );
 
-  // UI rendering sections (photo, personal info, professional info, interests) remain mostly unchanged
-  // Only dropdowns replaced with modal buttons + renderDropdownModal
+  // Location modal
+  const renderLocationModal = () => (
+    <Modal
+      visible={showLocationModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowLocationModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>Search for your location</Text>
+            <TouchableOpacity
+              onPress={() => setShowLocationModal(false)}
+              style={styles.closeButton}
+            >
+              <Feather name="x" size={24} color="#374151" />
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Start typing to search locations..."
+              value={locationSearch}
+              onChangeText={handleLocationSearchChange}
+              autoFocus={true}
+            />
+            {autocompleteLoading && (
+              <ActivityIndicator
+                style={styles.searchLoader}
+                size="small"
+                color="#6366F1"
+              />
+            )}
+          </View>
+          
+          <FlatList
+            data={autocompleteResults}
+            keyExtractor={(item) => item.place_id}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.modalOption}
+                onPress={() => selectLocation(item)}
+              >
+                <Text style={styles.modalOptionText}>
+                  {item.description}
+                </Text>
+              </TouchableOpacity>
+            )}
+            ListEmptyComponent={
+              !autocompleteLoading && (
+                <View style={styles.emptyState}>
+                  <Feather name="map-pin" size={40} color="#9CA3AF" />
+                  <Text style={styles.emptyStateText}>
+                    {locationSearch.length < 3 
+                      ? "Type at least 3 characters to search" 
+                      : "No locations found"}
+                  </Text>
+                </View>
+              )
+            }
+          />
+        </View>
+      </View>
+    </Modal>
+  );
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -235,7 +414,7 @@ export default function ProfileSetupScreen({ navigation }) {
           {profilePic ? <Image source={{uri:profilePic}} style={styles.avatar}/> :
             <View style={[styles.avatarPlaceholder, errors.profilePic && styles.errorBorder]}>
               <Feather name="camera" size={32} color="#9CA3AF"/>
-              <Text style={styles.placeholderText}>Tap to take</Text>
+              <Text style={styles.placeholderText}>Tap to select</Text>
             </View>
           }
         </TouchableOpacity>
@@ -289,8 +468,8 @@ export default function ProfileSetupScreen({ navigation }) {
 
         <View style={[styles.inputContainer,{flex:1}]}>
           <Text style={styles.inputLabel}>Gender</Text>
-          <TouchableOpacity style={[styles.interestsButton, errors.gender && styles.errorBorder]} onPress={()=>setShowGenderModal(true)}>
-            <Text style={styles.interestsButtonText}>{gender || 'Select gender'}</Text>
+          <TouchableOpacity style={[styles.selectButton, errors.gender && styles.errorBorder]} onPress={()=>setShowGenderModal(true)}>
+            <Text style={styles.selectButtonText}>{gender || 'Select gender'}</Text>
             <Feather name="chevron-down" size={20} color="#9CA3AF"/>
           </TouchableOpacity>
           {errors.gender && <Text style={styles.errorText}>{errors.gender}</Text>}
@@ -300,8 +479,22 @@ export default function ProfileSetupScreen({ navigation }) {
 
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Location</Text>
-        <TextInput style={[styles.input, errors.location && styles.errorInput]} placeholder="City, Country" value={location} onChangeText={setLocation}/>
-        {errors.location && <Text style={styles.errorText}>{errors.location}</Text>}
+        <TouchableOpacity
+          style={[
+            styles.selectButton,
+            errors.location && styles.errorBorder,
+          ]}
+          onPress={() => setShowLocationModal(true)}
+        >
+          <Text style={styles.selectButtonText}>
+            {location || "Search for your location"}
+          </Text>
+          <Feather name="chevron-down" size={20} color="#9CA3AF" />
+        </TouchableOpacity>
+        {errors.location && (
+          <Text style={styles.errorText}>{errors.location}</Text>
+        )}
+        {renderLocationModal()}
       </View>
     </View>
   );
@@ -316,8 +509,8 @@ export default function ProfileSetupScreen({ navigation }) {
       {/* Occupation */}
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Occupation</Text>
-        <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowOccupationModal(true)}>
-          <Text style={styles.interestsButtonText}>{occupation || 'Select occupation'}</Text>
+        <TouchableOpacity style={styles.selectButton} onPress={()=>setShowOccupationModal(true)}>
+          <Text style={styles.selectButtonText}>{occupation || 'Select occupation'}</Text>
           <Feather name="chevron-down" size={20} color="#9CA3AF"/>
         </TouchableOpacity>
         {renderDropdownModal(showOccupationModal, setShowOccupationModal, occupationOptions, occupation, setOccupation, 'Select Occupation')}
@@ -326,8 +519,8 @@ export default function ProfileSetupScreen({ navigation }) {
       {/* Education */}
       <View style={styles.inputContainer}>
         <Text style={styles.inputLabel}>Education</Text>
-        <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowEducationModal(true)}>
-          <Text style={styles.interestsButtonText}>{education || 'Select education'}</Text>
+        <TouchableOpacity style={styles.selectButton} onPress={()=>setShowEducationModal(true)}>
+          <Text style={styles.selectButtonText}>{education || 'Select education'}</Text>
           <Feather name="chevron-down" size={20} color="#9CA3AF"/>
         </TouchableOpacity>
         {renderDropdownModal(showEducationModal, setShowEducationModal, educationOptions, education, setEducation, 'Select Education')}
@@ -336,7 +529,10 @@ export default function ProfileSetupScreen({ navigation }) {
   );
 
   const renderInterests = () => {
-    const selectedInterests = interests.split(',').filter(i=>i.trim()!=='');
+    const selectedInterests = interests
+      ? interests.split(',').filter(i => i && i.trim() !== '')
+      : [];
+
     return (
       <View style={styles.card}>
         <View style={styles.sectionHeader}>
@@ -346,8 +542,8 @@ export default function ProfileSetupScreen({ navigation }) {
 
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Interests</Text>
-          <TouchableOpacity style={styles.interestsButton} onPress={()=>setShowInterestsModal(true)}>
-            <Text style={styles.interestsButtonText}>
+          <TouchableOpacity style={styles.selectButton} onPress={()=>setShowInterestsModal(true)}>
+            <Text style={styles.selectButtonText}>
               {selectedInterests.length>0?`${selectedInterests.length} interests selected`:'Select your interests'}
             </Text>
             <Feather name="chevron-down" size={20} color="#9CA3AF"/>
@@ -370,8 +566,8 @@ export default function ProfileSetupScreen({ navigation }) {
         {/* Looking For */}
         <View style={styles.inputContainer}>
           <Text style={styles.inputLabel}>Looking For</Text>
-          <TouchableOpacity style={[styles.interestsButton, errors.lookingFor && styles.errorBorder]} onPress={()=>setShowLookingForModal(true)}>
-            <Text style={styles.interestsButtonText}>{lookingFor || 'Select what you seek'}</Text>
+          <TouchableOpacity style={[styles.selectButton, errors.lookingFor && styles.errorBorder]} onPress={()=>setShowLookingForModal(true)}>
+            <Text style={styles.selectButtonText}>{lookingFor || 'Select what you seek'}</Text>
             <Feather name="chevron-down" size={20} color="#9CA3AF"/>
           </TouchableOpacity>
           {errors.lookingFor && <Text style={styles.errorText}>{errors.lookingFor}</Text>}
@@ -380,8 +576,8 @@ export default function ProfileSetupScreen({ navigation }) {
 
         {/* Interests Modal (multi-select) */}
         <Modal visible={showInterestsModal} animationType="slide" transparent={true} onRequestClose={()=>setShowInterestsModal(false)}>
-          <View style={styles.modalContainer}>
-            <View style={styles.modalContent}>
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Select Your Interests</Text>
                 <TouchableOpacity onPress={()=>setShowInterestsModal(false)} style={styles.closeButton}>
@@ -391,14 +587,25 @@ export default function ProfileSetupScreen({ navigation }) {
               <FlatList
                 data={interestOptions}
                 keyExtractor={(item)=>item}
+                numColumns={2}
+                contentContainerStyle={styles.interestsGrid}
                 renderItem={({item})=>(
-                  <TouchableOpacity style={[styles.interestOption, isInterestSelected(item)&&styles.interestOptionSelected]} onPress={()=>toggleInterest(item)}>
-                    <Text style={[styles.interestOptionText, isInterestSelected(item)&&styles.interestOptionTextSelected]}>{item}</Text>
+                  <TouchableOpacity 
+                    style={[
+                      styles.modalOption,
+                      isInterestSelected(item) && styles.modalOptionSelected
+                    ]} 
+                    onPress={()=>toggleInterest(item)}
+                  >
+                    <Text style={[
+                      styles.modalOptionText,
+                      isInterestSelected(item) && styles.modalOptionTextSelected
+                    ]}>
+                      {item}
+                    </Text>
                     {isInterestSelected(item)&&<Feather name="check" size={18} color="#6366F1"/>}
                   </TouchableOpacity>
                 )}
-                numColumns={2}
-                contentContainerStyle={styles.interestsGrid}
               />
               <TouchableOpacity style={styles.doneButton} onPress={()=>setShowInterestsModal(false)}>
                 <Text style={styles.doneButtonText}>Done</Text>
@@ -430,8 +637,6 @@ export default function ProfileSetupScreen({ navigation }) {
     </KeyboardAvoidingView>
   );
 }
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -570,6 +775,8 @@ const styles = StyleSheet.create({
   },
   inputContainer: {
     marginBottom: 20,
+    position: 'relative',
+    zIndex: 1,
   },
   inputLabel: {
     fontSize: 14,
@@ -612,16 +819,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginBottom: 16,
   },
-  pickerWrapper: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingHorizontal: 14,
-    justifyContent: 'center',
-    height: 52,
-  },
-  interestsButton: {
+  selectButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -631,7 +829,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  interestsButtonText: {
+  selectButtonText: {
     fontSize: 16,
     color: '#111827',
   },
@@ -658,12 +856,12 @@ const styles = StyleSheet.create({
   removeInterestButton: {
     padding: 2,
   },
-  modalContainer: {
+  modalOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContent: {
+  modalContainer: {
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -684,32 +882,32 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: 4,
   },
-  interestsGrid: {
-    paddingBottom: 20,
-  },
-  interestOption: {
-    flex: 1,
+  modalOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    margin: 6,
+    marginBottom: 10,
     borderRadius: 12,
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
     borderColor: '#E5E7EB',
   },
-  interestOptionSelected: {
+  modalOptionSelected: {
     backgroundColor: '#EEF2FF',
     borderColor: '#6366F1',
   },
-  interestOptionText: {
+  modalOptionText: {
     fontSize: 16,
     color: '#374151',
+    flex: 1,
   },
-  interestOptionTextSelected: {
+  modalOptionTextSelected: {
     color: '#6366F1',
     fontWeight: '600',
+  },
+  interestsGrid: {
+    paddingBottom: 20,
   },
   doneButton: {
     backgroundColor: '#6366F1',
@@ -752,22 +950,32 @@ const styles = StyleSheet.create({
   spacer: {
     height: 20,
   },
-});
-
-const pickerSelectStyles = StyleSheet.create({
-  inputIOS: {
-    fontSize: 16,
-    color: '#111827',
-    paddingVertical: 0,
-    paddingHorizontal: 0,
+  searchContainer: {
+    position: 'relative',
+    marginBottom: 16,
   },
-  inputAndroid: {
+  searchInput: {
+    backgroundColor: "#FFFFFF",
+    padding: 14,
+    borderRadius: 12,
     fontSize: 16,
-    color: '#111827',
-    paddingVertical: 0,
-    paddingHorizontal: 0,
+    color: "#111827",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
   },
-  placeholder: {
-    color: '#9CA3AF',
+  searchLoader: {
+    position: 'absolute',
+    right: 10,
+    top: 14,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 40,
+  },
+  emptyStateText: {
+    marginTop: 16,
+    color: '#6B7280',
+    textAlign: 'center',
   },
 });
