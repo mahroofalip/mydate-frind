@@ -193,66 +193,116 @@ export default function HomeScreen({ navigation }) {
   }, [currentUser]);
 
   // Fetch profiles
-  useEffect(() => {
-    const fetchProfiles = async () => {
-      try {
-        if (!currentUser) return;
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = deg2rad(lat2 - lat1);
+  const dLon = deg2rad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in kilometers
+  return distance;
+};
 
-        // Start building the query
-        let query = supabase
-          .from("profiles")
-          .select("*, last_login_at, last_logout_at, session_expires_at")
-          .neq("id", currentUser.id);
+const deg2rad = (deg) => {
+  return deg * (Math.PI / 180);
+};
 
-        // Only add not.in filter if we have ignored profiles
-        if (ignoredProfiles.size > 0) {
-          const ignoredIds = Array.from(ignoredProfiles);
-          query = query.not("id", "in", `(${ignoredIds.join(",")})`);
-        }
+// Update the fetchProfiles useEffect hook
+useEffect(() => {
+  const fetchProfiles = async () => {
+    try {
+      if (!currentUser) return;
 
-        const { data, error } = await query;
+      // First get current user's location
+      const { data: currentUserProfile, error: userError } = await supabase
+        .from("profiles")
+        .select("latitude, longitude")
+        .eq("id", currentUser.id)
+        .single();
 
-        if (error) throw error;
+      if (userError) throw userError;
 
-        // Map Supabase data to our profile format
-        const formattedProfiles = data.map((profile) => {
-          // Process all images from extra_images field
-          const allImages = profile.extra_images
-            ? profile.extra_images
-                .split(",")
-                .map((img) => img.trim())
-                .filter((img) => img)
-            : [];
+      // Start building the query
+      let query = supabase
+        .from("profiles")
+        .select("*, last_login_at, last_logout_at, session_expires_at")
+        .neq("id", currentUser.id)
+        .not("latitude", "is", null)
+        .not("longitude", "is", null);
 
-          return {
-            id: profile.id,
-            name: profile.full_name,
-            age: profile.age,
-            image: profile.selfie_url || "https://via.placeholder.com/300",
-            extraImages: allImages,
-            place: profile.location,
-            distance: "Nearby",
-            bio: profile.bio,
-            interests: profile.interests
-              ? profile.interests.split(",").slice(0, 3)
-              : [],
-            match: `${Math.floor(Math.random() * 30) + 70}%`,
-            lookingFor: profile.looking_for,
-            occupation: profile.occupation,
-            education: profile.education,
-            last_login_at: profile.last_login_at,
-            last_logout_at: profile.last_logout_at,
-            session_expires_at: profile.session_expires_at,
-          };
-        });
-
-        setProfiles(formattedProfiles);
-      } catch (error) {
-        Alert.alert("Error", error.message || "Failed to load profiles");
-      } finally {
-        setLoading(false);
+      // Only add not.in filter if we have ignored profiles
+      if (ignoredProfiles.size > 0) {
+        const ignoredIds = Array.from(ignoredProfiles);
+        query = query.not("id", "in", `(${ignoredIds.join(",")})`);
       }
-    };
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Calculate distances and sort by proximity
+      const profilesWithDistance = data.map((profile) => {
+        const distance = calculateDistance(
+          currentUserProfile.latitude,
+          currentUserProfile.longitude,
+          profile.latitude,
+          profile.longitude
+        );
+        
+        return {
+          ...profile,
+          distanceValue: distance,
+          distance: `${distance.toFixed(1)} km away`
+        };
+      });
+
+      // Sort by distance (closest first)
+      profilesWithDistance.sort((a, b) => a.distanceValue - b.distanceValue);
+
+      // Map Supabase data to our profile format
+      const formattedProfiles = profilesWithDistance.map((profile) => {
+        // Process all images from extra_images field
+        const allImages = profile.extra_images
+          ? profile.extra_images
+              .split(",")
+              .map((img) => img.trim())
+              .filter((img) => img)
+          : [];
+
+        return {
+          id: profile.id,
+          name: profile.full_name,
+          age: profile.age,
+          image: profile.selfie_url || "https://via.placeholder.com/300",
+          extraImages: allImages,
+          place: profile.location,
+          distance: profile.distance,
+          distanceValue: profile.distanceValue,
+          bio: profile.bio,
+          interests: profile.interests
+            ? profile.interests.split(",").slice(0, 3)
+            : [],
+          match: `${Math.floor(Math.random() * 30) + 70}%`,
+          lookingFor: profile.looking_for,
+          occupation: profile.occupation,
+          education: profile.education,
+          last_login_at: profile.last_login_at,
+          last_logout_at: profile.last_logout_at,
+          session_expires_at: profile.session_expires_at,
+        };
+      });
+
+      setProfiles(formattedProfiles);
+    } catch (error) {
+      Alert.alert("Error", error.message || "Failed to load profiles");
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
     if (currentUser) fetchProfiles();
 

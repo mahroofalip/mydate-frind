@@ -1,7 +1,7 @@
 // App.js (fully modified)
 import "react-native-gesture-handler";
 import 'react-native-get-random-values'; 
-import '@react-native-community/geolocation';
+import Geolocation from '@react-native-community/geolocation';
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
@@ -23,6 +23,8 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Platform,
+  PermissionsAndroid,
 } from "react-native";
 import { supabase } from "./lib/supabase";
 import WelcomeScreen from "./Pages/WelcomeScreen";
@@ -57,6 +59,49 @@ const { width, height } = Dimensions.get("window");
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
+
+// Request location permission
+const requestLocationPermission = async () => {
+  if (Platform.OS === 'ios') {
+    // For iOS, we'll rely on the info.plist settings
+    return true;
+  } else {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+        {
+          title: "Location Permission",
+          message: "This app needs access to your location to show potential matches near you.",
+          buttonNeutral: "Ask Me Later",
+          buttonNegative: "Cancel",
+          buttonPositive: "OK"
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  }
+};
+
+// Check location permission
+const checkLocationPermission = async () => {
+  if (Platform.OS === 'ios') {
+    // iOS permission check would require additional native code
+    return true;
+  } else {
+    try {
+      const result = await PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      );
+      return result;
+    } catch (err) {
+      console.warn(err);
+      return false;
+    }
+  }
+};
 
 function MainTabs({
   newLikeCount,
@@ -531,6 +576,58 @@ export default function App() {
 
     return () => authListener.subscription.unsubscribe();
   }, []);
+
+  // Location tracking effect
+  useEffect(() => {
+    let watchId = null;
+    
+    const startWatchingLocation = async () => {
+      const hasPermission = await checkLocationPermission();
+      if (!hasPermission) {
+        // Request permission if not granted
+        const permissionGranted = await requestLocationPermission();
+        if (!permissionGranted) return;
+      }
+      
+      watchId = Geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          // Update Supabase with current location
+          if (currentUserId) {
+            supabase
+              .from('profiles')
+              .update({ 
+                current_latitude: latitude,
+                current_longitude: longitude 
+              })
+              .eq('id', currentUserId)
+              .then(({ error }) => {
+                if (error) {
+                  console.log('Error updating location:', error);
+                }
+              });
+          }
+        },
+        (error) => console.log('Location watch error:', error),
+        { 
+          enableHighAccuracy: true, 
+          distanceFilter: 100, // Update every 100 meters
+          interval: 300000,    // 5 minutes
+          fastestInterval: 60000 // 1 minute
+        }
+      );
+    };
+    
+    if (currentUserId) {
+      startWatchingLocation();
+    }
+    
+    return () => {
+      if (watchId !== null) {
+        Geolocation.clearWatch(watchId);
+      }
+    };
+  }, [currentUserId]);
 
   const handleLikesFocus = useCallback(() => {
     likesScreenFocusedRef.current = true;
