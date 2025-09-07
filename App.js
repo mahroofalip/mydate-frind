@@ -145,7 +145,7 @@ function MainTabs({
     >
       <Tab.Screen name="Discover" component={HomeScreen} />
       <Tab.Screen name="Matches" component={MatchesScreen} />
-      {/* <Tab.Screen name="Search" component={SearchScreen} /> */}
+      <Tab.Screen name="Search" component={SearchScreen} />
       <Tab.Screen name="Messages">
         {() => (
           <MessagesScreen
