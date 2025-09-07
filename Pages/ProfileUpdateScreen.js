@@ -393,7 +393,7 @@ export default function ProfileUpdateScreen({ navigation }) {
       if (error) throw error;
 
       Alert.alert("Success", "Profile updated successfully!");
-      navigation.replace("ProfileScreen");
+      navigation.navigate("MainTabs", { screen: "Home" });
     } catch (err) {
       Alert.alert("Error", err.message || "Failed to update profile");
     } finally {
