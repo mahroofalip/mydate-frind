@@ -125,9 +125,10 @@ export default function HomeScreen({ navigation }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [sending, setSending] = useState(false);
   const [likedProfiles, setLikedProfiles] = useState(new Set());
+  const [currentUserGender, setCurrentUserGender] = useState(null);
   const listRef = useRef(null);
   
-  // NEW: Track loading state for like buttons
+  // Track loading state for like buttons
   const [likeLoading, setLikeLoading] = useState({});
 
   // Fetch current user
@@ -137,6 +138,20 @@ export default function HomeScreen({ navigation }) {
         data: { user },
       } = await supabase.auth.getUser();
       setCurrentUser(user);
+      
+      // Also fetch user's gender
+      if (user) {
+        const { data: profile, error } = await supabase
+          .from("profiles")
+          .select("gender")
+          .eq("id", user.id)
+          .single();
+          
+        if (!error && profile) {
+          setCurrentUserGender(profile.gender);
+        }
+      }
+      
       return user;
     };
 
@@ -192,119 +207,136 @@ export default function HomeScreen({ navigation }) {
     fetchLikes();
   }, [currentUser]);
 
-  // Fetch profiles
+  // Calculate distance between two coordinates
   const calculateDistance = (lat1, lon1, lat2, lon2) => {
-  const R = 6371; // Earth's radius in kilometers
-  const dLat = deg2rad(lat2 - lat1);
-  const dLon = deg2rad(lon2 - lon1);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
-  return distance;
-};
-
-const deg2rad = (deg) => {
-  return deg * (Math.PI / 180);
-};
-
-// Update the fetchProfiles useEffect hook
-useEffect(() => {
-  const fetchProfiles = async () => {
-    try {
-      if (!currentUser) return;
-
-      // First get current user's location
-      const { data: currentUserProfile, error: userError } = await supabase
-        .from("profiles")
-        .select("latitude, longitude")
-        .eq("id", currentUser.id)
-        .single();
-
-      if (userError) throw userError;
-
-      // Start building the query
-      let query = supabase
-        .from("profiles")
-        .select("*, last_login_at, last_logout_at, session_expires_at")
-        .neq("id", currentUser.id)
-        .not("latitude", "is", null)
-        .not("longitude", "is", null);
-
-      // Only add not.in filter if we have ignored profiles
-      if (ignoredProfiles.size > 0) {
-        const ignoredIds = Array.from(ignoredProfiles);
-        query = query.not("id", "in", `(${ignoredIds.join(",")})`);
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      // Calculate distances and sort by proximity
-      const profilesWithDistance = data.map((profile) => {
-        const distance = calculateDistance(
-          currentUserProfile.latitude,
-          currentUserProfile.longitude,
-          profile.latitude,
-          profile.longitude
-        );
-        
-        return {
-          ...profile,
-          distanceValue: distance,
-          distance: `${distance.toFixed(1)} km away`
-        };
-      });
-
-      // Sort by distance (closest first)
-      profilesWithDistance.sort((a, b) => a.distanceValue - b.distanceValue);
-
-      // Map Supabase data to our profile format
-      const formattedProfiles = profilesWithDistance.map((profile) => {
-        // Process all images from extra_images field
-        const allImages = profile.extra_images
-          ? profile.extra_images
-              .split(",")
-              .map((img) => img.trim())
-              .filter((img) => img)
-          : [];
-
-        return {
-          id: profile.id,
-          name: profile.full_name,
-          age: profile.age,
-          image: profile.selfie_url || "https://via.placeholder.com/300",
-          extraImages: allImages,
-          place: profile.location,
-          distance: profile.distance,
-          distanceValue: profile.distanceValue,
-          bio: profile.bio,
-          interests: profile.interests
-            ? profile.interests.split(",").slice(0, 3)
-            : [],
-          match: `${Math.floor(Math.random() * 30) + 70}%`,
-          lookingFor: profile.looking_for,
-          occupation: profile.occupation,
-          education: profile.education,
-          last_login_at: profile.last_login_at,
-          last_logout_at: profile.last_logout_at,
-          session_expires_at: profile.session_expires_at,
-        };
-      });
-
-      setProfiles(formattedProfiles);
-    } catch (error) {
-      Alert.alert("Error", error.message || "Failed to load profiles");
-    } finally {
-      setLoading(false);
-    }
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c; // Distance in kilometers
+    return distance;
   };
 
+  const deg2rad = (deg) => {
+    return deg * (Math.PI / 180);
+  };
 
-    if (currentUser) fetchProfiles();
+  // Fetch profiles with gender filtering
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      try {
+        if (!currentUser || !currentUserGender) return;
+
+        // First get current user's location
+        const { data: currentUserProfile, error: userError } = await supabase
+          .from("profiles")
+          .select("latitude, longitude")
+          .eq("id", currentUser.id)
+          .single();
+
+        if (userError) throw userError;
+
+        // Determine target genders based on current user's gender
+        let targetGenders = [];
+        switch (currentUserGender) {
+          case "Male":
+            targetGenders = ["Female", "Other"];
+            break;
+          case "Female":
+            targetGenders = ["Male", "Other"];
+            break;
+          case "Other":
+            targetGenders = ["Male", "Female", "Other"];
+            break;
+          default:
+            // If gender is not set, show all
+            targetGenders = ["Male", "Female", "Other"];
+        }
+          
+        // Start building the query
+        let query = supabase
+          .from("profiles")
+          .select("*, last_login_at, last_logout_at, session_expires_at")
+          .neq("id", currentUser.id)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .in("gender", targetGenders); // Filter by target genders
+              
+        
+        if (ignoredProfiles.size > 0) {
+          const ignoredIds = Array.from(ignoredProfiles);
+          query = query.not("id", "in", `(${ignoredIds.join(",")})`);
+        }
+
+        const { data, error } = await query;
+
+        if (error) throw error;
+
+        // Calculate distances and sort by proximity
+        const profilesWithDistance = data.map((profile) => {
+          const distance = calculateDistance(
+            currentUserProfile.latitude,
+            currentUserProfile.longitude,
+            profile.latitude,
+            profile.longitude
+          );
+          
+          return {
+            ...profile,
+            distanceValue: distance,
+            distance: `${distance.toFixed(1)} km away`
+          };
+        });
+
+        // Sort by distance (closest first)
+        profilesWithDistance.sort((a, b) => a.distanceValue - b.distanceValue);
+
+        // Map Supabase data to our profile format
+        const formattedProfiles = profilesWithDistance.map((profile) => {
+          // Process all images from extra_images field
+          const allImages = profile.extra_images
+            ? profile.extra_images
+                .split(",")
+                .map((img) => img.trim())
+                .filter((img) => img)
+            : [];
+
+          return {
+            id: profile.id,
+            name: profile.full_name,
+            age: profile.age,
+            image: profile.selfie_url || "https://via.placeholder.com/300",
+            extraImages: allImages,
+            place: profile.location,
+            distance: profile.distance,
+            distanceValue: profile.distanceValue,
+            bio: profile.bio,
+            interests: profile.interests
+              ? profile.interests.split(",").slice(0, 3)
+              : [],
+            match: `${Math.floor(Math.random() * 30) + 70}%`,
+            lookingFor: profile.looking_for,
+            occupation: profile.occupation,
+            education: profile.education,
+            last_login_at: profile.last_login_at,
+            last_logout_at: profile.last_logout_at,
+            session_expires_at: profile.session_expires_at,
+          };
+        });
+
+        setProfiles(formattedProfiles);
+      } catch (error) {
+        Alert.alert("Error", error.message || "Failed to load profiles");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (currentUser && currentUserGender) fetchProfiles();
 
     // Subscribe to real-time profile updates
     const profileSubscription = supabase
@@ -333,7 +365,7 @@ useEffect(() => {
         profileSubscription.unsubscribe();
       }
     };
-  }, [currentUser, ignoredProfiles]);
+  }, [currentUser, currentUserGender, ignoredProfiles]);
 
   // Handle ignore action
   const handleIgnore = async (profile) => {
