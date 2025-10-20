@@ -61,23 +61,37 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
     return msgTime.format('MMM D');
   }, []);
 
-  // Fetch conversations with corrected relationships
+  // Fetch conversations with deleted chats filtering
   const fetchConversations = useCallback(async () => {
     if (!currentUser) return;
     
     setLoading(true);
     
     try {
+      // First, get all deleted chat IDs for current user
+      const { data: deletedChats, error: deletedError } = await supabase
+        .from('deleted_chats')
+        .select('chat_id')
+        .eq('user_id', currentUser.id);
+
+      if (deletedError) {
+        console.error('Error fetching deleted chats:', deletedError);
+      }
+
+      const deletedChatIds = deletedChats?.map(dc => dc.chat_id) || [];
+
+      // Fetch conversations excluding deleted ones
       const { data, error } = await supabase
         .from('chats')
         .select(`
           id,
           created_at,
-          user1:profiles!chats_user1_fkey(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
-          user2:profiles!chats_user2_fkey(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at),
+          user1:profiles!chats_user1_fkey(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at, is_premium),
+          user2:profiles!chats_user2_fkey(id, full_name, selfie_url, last_login_at, last_logout_at, session_expires_at, is_premium),
           messages: messages!messages_chat_id_fkey(id, content, created_at, sender, status)
         `)
         .or(`user1.eq.${currentUser.id},user2.eq.${currentUser.id}`)
+        .not('id', 'in', `(${deletedChatIds.length > 0 ? deletedChatIds.join(',') : 'NULL'})`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -96,9 +110,14 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
           .eq('status', 'sent')
           .neq('sender', currentUser.id);
 
-        // Find last message
-        const lastMessage = conversation.messages?.length > 0
-          ? conversation.messages.reduce((latest, msg) => 
+        // Find last message (filter out messages deleted for current user)
+        const validMessages = conversation.messages?.filter(msg => 
+          !msg.deleted_for_users?.includes(currentUser.id) && 
+          !msg.deleted_for_everyone
+        ) || [];
+
+        const lastMessage = validMessages.length > 0
+          ? validMessages.reduce((latest, msg) => 
               new Date(msg.created_at) > new Date(latest.created_at) ? msg : latest
             )
           : null;
@@ -113,12 +132,18 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
           image: otherUser.selfie_url,
           userId: otherUser.id,
           online: checkOnlineStatus(otherUser),
-          premium: otherUser.is_premium || false
+          premium: otherUser.is_premium || false,
+          lastUpdated: lastMessage?.created_at || conversation.created_at
         };
       }));
 
-      setConversations(formatted);
-      setFilteredConversations(formatted);
+      // Sort by last updated time
+      const sortedConversations = formatted.sort((a, b) => 
+        new Date(b.lastUpdated) - new Date(a.lastUpdated)
+      );
+
+      setConversations(sortedConversations);
+      setFilteredConversations(sortedConversations);
     } catch (error) {
       console.error('Fetch conversations error:', error);
     } finally {
@@ -130,6 +155,7 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
     if (!currentUser) return;
 
     let messagesChannel;
+    let deletedChatsChannel;
     let timeoutId;
 
     // Add a small delay before fetching to ensure DB updates are processed
@@ -139,7 +165,7 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
       }, 300);
     }
 
-    // Real-time subscriptions
+    // Real-time subscriptions for messages
     messagesChannel = supabase
       .channel('public:messages')
       .on('postgres_changes', {
@@ -191,8 +217,25 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
       })
       .subscribe();
 
+    // Real-time subscription for deleted chats
+    deletedChatsChannel = supabase
+      .channel('public:deleted_chats')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'deleted_chats',
+        filter: `user_id=eq.${currentUser.id}`
+      }, (payload) => {
+        // When a chat is deleted, remove it from the list
+        const deletedChatId = payload.new.chat_id;
+        setConversations(prev => prev.filter(conv => conv.chatId !== deletedChatId));
+        setFilteredConversations(prev => prev.filter(conv => conv.chatId !== deletedChatId));
+      })
+      .subscribe();
+
     return () => {
       if (messagesChannel) messagesChannel.unsubscribe();
+      if (deletedChatsChannel) deletedChatsChannel.unsubscribe();
       if (timeoutId) clearTimeout(timeoutId);
     };
   }, [currentUser, isFocused, fetchConversations, formatTime]);
@@ -231,10 +274,6 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
         name: conversation.name,
         image: conversation.image,
         userId: conversation.userId
-      },
-      // Pass callback to update unread count if needed
-      onMessagesRead: (count) => {
-        setUnreadMessageCount(prev => Math.max(0, prev - count));
       }
     });
   };
@@ -368,7 +407,7 @@ export default function MessagesScreen({ setUnreadMessageCount }) {
         <FlatList
           data={filteredConversations}
           renderItem={renderConversationItem}
-          keyExtractor={item => item.id}
+          keyExtractor={item => item.chatId}
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
