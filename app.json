@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "zingo",
-    "slug": "zingoprod",
+    "slug": "zingo",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,7 +27,7 @@
     },
     "extra": {
       "eas": {
-        "projectId": "11f7198e-9262-4189-9dcb-570b4b7d7a18"
+        "projectId": "ec950838-bcb9-4e42-8fcd-4c682e92c834"
       }
     },
     "plugins": [
@@ -42,6 +42,6 @@
         }
       ]
     ],
-    "owner": "mahroof"
+    "owner": "zingo-team"
   }
 }
